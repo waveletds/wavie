@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {   Wallet, ArrowDownLeft, ArrowUpRight, ArrowRight, Phone, 
-  Lightbulb, Tv, GraduationCap, Copy, Users, ChevronRight, Zap, RefreshCw
+  Lightbulb, Tv, GraduationCap, Copy, Users, ChevronRight, Zap, RefreshCw,
+  Sunrise, Sun, Moon
 } from 'lucide-react';
 import { UserState, Transaction, SavedBeneficiary, ActiveTab, Language } from '../types';
 import { PIDGIN_DICT, ENGLISH_DICT } from '../data';
@@ -27,6 +28,29 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 }) => {
   const dict = lang === 'pidgin' ? PIDGIN_DICT : ENGLISH_DICT;
   const [copiedCode, setCopiedCode] = useState<boolean>(false);
+
+  // Time of Day Dynamic Greetings (Morning, Afternoon, Evening)
+  const getGreetingTuple = () => {
+    const hour = new Date().getHours();
+    if (hour >= 0 && hour < 12) {
+      return {
+        text: lang === 'pidgin' ? 'Good morning' : 'Good Morning',
+        icon: <Sunrise className="w-5 h-5 text-amber-500 animate-bounce-slow" />
+      };
+    } else if (hour >= 12 && hour < 17) {
+      return {
+        text: lang === 'pidgin' ? 'Good afternoon' : 'Good Afternoon',
+        icon: <Sun className="w-5 h-5 text-amber-400 animate-spin-slow" />
+      };
+    } else {
+      return {
+        text: lang === 'pidgin' ? 'Good evening' : 'Good Evening',
+        icon: <Moon className="w-5 h-5 text-indigo-400" />
+      };
+    }
+  };
+
+  const greeting = getGreetingTuple();
 
   const handleCopyReferral = () => {
     navigator.clipboard.writeText(user.referralCode);
@@ -74,10 +98,11 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         className="flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-2xl font-black font-display tracking-tight text-slate-900" id="welcome-text">
-            {lang === 'pidgin' ? `Afa, ${user.name || 'Chief'}! ⚡` : `Hi, ${user.name || 'Developer'}!`}
+          <h1 className="text-2xl font-black font-display tracking-tight text-slate-900 flex items-center gap-2.5" id="welcome-text">
+            {greeting.icon}
+            <span>{greeting.text}, {user.name || 'Chief'}!</span>
           </h1>
-          <p className="text-sm text-slate-400 font-medium">
+          <p className="text-sm text-slate-400 font-medium ml-7.5">
             {lang === 'pidgin' ? 'Wetin you wan pay for today?' : 'Choose standard services with high success delivery rates.'}
           </p>
         </div>
@@ -100,7 +125,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           <div className="flex justify-between items-start z-10">
             <div className="flex flex-col">
               <span className="text-xs text-slate-400 font-display font-medium uppercase tracking-widest">
-                {dict.wallet_bal_label}
+                Main Balance
               </span>
               <span className="text-3xl md:text-4xl font-extrabold font-display mt-2 flex items-baseline gap-1" id="balance-amount">
                 ₦{user.walletBalance.toLocaleString('en-NG')}
@@ -114,20 +139,20 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 
           <div className="flex flex-col sm:flex-row gap-3 mt-8 z-10 pt-2 border-t border-white/5">
             <button
-              id="dashboard-fund-wallet-btn"
+              id="dashboard-deposit-btn"
               onClick={() => onNavigate('wallet')}
               className="flex-grow py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold rounded-xl text-xs font-display flex items-center justify-center gap-2 transition-all shadow active:scale-95 cursor-pointer"
             >
               <ArrowDownLeft className="w-4 h-4 text-slate-900 transition-transform" />
-              {dict.fund_wallet_btn}
+              Deposit
             </button>
             <button
-              id="dashboard-withdraw-btn"
+              id="dashboard-transfer-btn"
               onClick={() => onNavigate('wallet')}
               className="flex-grow py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold font-display flex items-center justify-center gap-2 backdrop-blur-md border border-white/15 transition-all active:scale-95 cursor-pointer"
             >
               <ArrowUpRight className="w-4 h-4 text-slate-300" />
-              {dict.withdraw_btn}
+              Transfer
             </button>
           </div>
         </div>

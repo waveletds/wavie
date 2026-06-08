@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, Phone, Database, Lightbulb, Tv, GraduationCap, 
   Wallet, History, Settings, LogOut, ArrowRight, ShieldCheck, Mail, Lock, 
-  Check, Sparkles, Building2, User, KeyRound, Languages, ArrowDownLeft, ArrowUpRight
+  Check, Sparkles, Building2, User, KeyRound, Languages, ArrowDownLeft, ArrowUpRight,
+  Bell, Sun, Sunrise, Moon
 } from 'lucide-react';
 import { 
   ActiveTab, UserState, Transaction, SavedBeneficiary, Language 
@@ -117,6 +118,7 @@ export default function App() {
   });
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [showNotifications, setShowNotifications] = useState<boolean>(false);
 
   // Popup & alert elements states
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -629,23 +631,126 @@ export default function App() {
           {/* MAIN PAGE CONTAINER */}
           <main className="flex-grow flex flex-col pb-20 md:pb-6 max-w-7xl mx-auto w-full px-4 md:px-6 py-6 overflow-x-hidden">
             
-            {/* MOBILE QUICK TOP BAR */}
-            <header className="md:hidden flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-              <span className="text-base font-black font-display text-slate-900 tracking-tight flex items-center gap-0.5 select-none">
-                Wavie <span className="text-amber-500 animate-pulse text-sm">⚡</span>
-              </span>
+            {/* UNIFIED TOP BAR FOR NAV, USER, NOTIFICATIONS (Top Left Focus) */}
+            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 mb-6 border-b border-slate-205">
+               <div className="flex items-center gap-3 flex-wrap">
+                  {/* User Profile avatar capsule */}
+                  <div 
+                    id="top-user-profile-capsule"
+                    onClick={() => {
+                      setActiveTab('settings');
+                      addToast('Navigated to profile configurations', 'info');
+                    }}
+                    className="flex items-center gap-2.5 p-1.5 pr-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-full cursor-pointer transition-all active:scale-95 shadow-sm"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-black font-display text-xs flex items-center justify-center relative">
+                      OJ
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white animate-pulse" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Account</span>
+                      <span className="text-xs font-black text-slate-800 font-display -mt-0.5">{user.name}</span>
+                    </div>
+                  </div>
 
-              <button
-                id="mobile-quick-logout-btn"
-                onClick={() => {
-                  setIsAuthenticated(false);
-                  addToast('Logged out.', 'info');
-                }}
-                className="p-1 px-3 bg-slate-100 rounded-lg text-[10px] font-bold text-slate-650 flex items-center gap-1 active:scale-95 transition-all text-red-500"
-              >
-                <LogOut className="w-3 h-3" />
-                Logout
-              </button>
+                  {/* Notification Bell with Badge */}
+                  <div className="relative">
+                     <button
+                       id="top-notification-bell-btn"
+                       onClick={() => setShowNotifications(!showNotifications)}
+                       className="p-2 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-full transition-all active:scale-95 shadow-sm relative cursor-pointer"
+                     >
+                       <Bell className="w-4 h-4 text-slate-600" />
+                       <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 rounded-full text-[9px] font-bold text-slate-950 flex items-center justify-center shadow-sm">
+                         3
+                       </span>
+                     </button>
+
+                     {showNotifications && (
+                       <div 
+                         id="notifications-dropdown-menu"
+                         className="absolute left-0 mt-3 w-[290px] sm:w-[360px] bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-4 animate-scale-in"
+                       >
+                         <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
+                           <span className="text-xs font-bold text-slate-800 font-display uppercase tracking-wider">Active Alerts</span>
+                           <span className="text-[9px] font-extrabold text-amber-600 px-1.5 py-0.5 bg-amber-50 rounded-full">3 Active</span>
+                         </div>
+                         <div className="flex flex-col gap-3 max-h-72 overflow-y-auto no-scrollbar">
+                           <div className="p-2.5 bg-emerald-50/40 rounded-xl border border-emerald-100 flex gap-2.5">
+                             <div className="p-1 text-emerald-700 bg-emerald-100 rounded h-max mt-0.5">
+                               <Check className="w-3 h-3" />
+                             </div>
+                             <div className="flex flex-col text-left">
+                               <span className="text-[10px] font-bold text-slate-800 font-display">Fast Auto-Funding Active</span>
+                               <span className="text-[10px] text-slate-500 leading-tight">Virtual Bank Auto-Funding is fully operational for instantaneous delivery.</span>
+                               <span className="text-[8px] text-slate-400 mt-1 font-mono">Just Now</span>
+                             </div>
+                           </div>
+                           <div className="p-2.5 bg-amber-50/40 rounded-xl border border-amber-100 flex gap-2.5">
+                             <div className="p-1 text-amber-700 bg-amber-100 rounded h-max mt-0.5">
+                               <Sparkles className="w-3 h-3" />
+                             </div>
+                             <div className="flex flex-col text-left">
+                               <span className="text-[10px] font-bold text-slate-800 font-display">MTN SME Data Slash!</span>
+                               <span className="text-[10px] text-slate-500 leading-tight">Prices dropped to ₦235/GB. Select with code SMEFLASH.</span>
+                               <span className="text-[8px] text-amber-600 mt-1 font-mono">1 Hour Ago</span>
+                             </div>
+                           </div>
+                           <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-150 flex gap-2.5">
+                             <div className="p-1 text-slate-600 bg-slate-200 rounded h-max mt-0.5">
+                               <ShieldCheck className="w-3 h-3" />
+                             </div>
+                             <div className="flex flex-col text-left">
+                               <span className="text-[10px] font-bold text-slate-800 font-display">Identity State Clear</span>
+                               <span className="text-[10px] text-slate-500 leading-tight">Account verification has passed Tier-1 limit standards.</span>
+                               <span className="text-[8px] text-slate-400 mt-1 font-mono">2 Days Ago</span>
+                             </div>
+                           </div>
+                         </div>
+                       </div>
+                     )}
+                  </div>
+
+                  {/* Top-left Quick-Navigation Row */}
+                  <nav className="flex items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200 ml-2">
+                    {menuItems.slice(0, 4).map((item) => (
+                      <button
+                        key={item.id}
+                        id={`top-navigation-link-${item.id}`}
+                        onClick={() => {
+                          setActiveTab(item.id as ActiveTab);
+                          setShowNotifications(false);
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold font-sans transition-all active:scale-95 cursor-pointer ${
+                          activeTab === item.id
+                            ? 'bg-slate-900 text-white shadow-sm'
+                            : 'text-slate-650 hover:bg-slate-200'
+                        }`}
+                      >
+                        {item.icon}
+                        <span className="hidden sm:inline">{item.label}</span>
+                      </button>
+                    ))}
+                  </nav>
+               </div>
+
+               {/* Right side status indicator */}
+               <div className="hidden sm:flex items-center gap-2">
+                 <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest font-mono">
+                   Wavie Portal ⚡
+                 </span>
+                 <button
+                   id="top-right-logout-btn"
+                   onClick={() => {
+                     setIsAuthenticated(false);
+                     addToast('Logged out.', 'info');
+                   }}
+                   className="p-1.5 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-full transition-all active:scale-95 border border-slate-200 cursor-pointer"
+                   title="Sign Out"
+                 >
+                   <LogOut className="w-3.5 h-3.5" />
+                 </button>
+               </div>
             </header>
 
             {/* MAIN PORTLET TAB RENDERING */}
