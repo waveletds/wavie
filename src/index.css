@@ -5,6 +5,29 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Outfit", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --animate-fade-in-up: fade-in-up 0.35s cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
+  --animate-pulse-slow: pulse-slow 3s infinite ease-in-out;
+
+  @keyframes fade-in-up {
+    0% {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse-slow {
+    0%, 100% {
+      opacity: 0.15;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
 }
 
 @layer utilities {

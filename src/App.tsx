@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
 import { 
   LayoutDashboard, Phone, Database, Lightbulb, Tv, GraduationCap, 
   Wallet, History, Settings, LogOut, ArrowRight, ShieldCheck, Mail, Lock, 
@@ -651,11 +650,9 @@ export default function App() {
 
             {/* MAIN PORTLET TAB RENDERING */}
             <div className="flex-grow">
-              <motion.div
+              <div
                 key={activeTab}
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.25, ease: 'easeOut' }}
+                className="animate-fade-in-up"
               >
                 {activeTab === 'dashboard' && (
                   <MainDashboard
@@ -758,7 +755,7 @@ export default function App() {
                     addToast={addToast}
                   />
                 )}
-              </motion.div>
+              </div>
             </div>
 
             {/* MOBILE BOTTOM NAVIGATION BAR BAR */}

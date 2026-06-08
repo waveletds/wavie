@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { 
-  Wallet, ArrowDownLeft, ArrowUpRight, ArrowRight, Phone, 
+import {   Wallet, ArrowDownLeft, ArrowUpRight, ArrowRight, Phone, 
   Lightbulb, Tv, GraduationCap, Copy, Users, ChevronRight, Zap, RefreshCw
 } from 'lucide-react';
 import { UserState, Transaction, SavedBeneficiary, ActiveTab, Language } from '../types';
@@ -66,40 +64,13 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     { text: lang === 'pidgin' ? 'MTN SME plan drop! ₦235 for full 1GB!' : 'MTN SME Slash: Purchase 1GB SME data bundle at ₦235 flat!', code: 'SMEFLASH', color: 'from-amber-400 to-yellow-500 text-slate-900' }
   ];
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.05
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 15 },
-    show: { 
-      opacity: 1, 
-      y: 0, 
-      transition: { 
-        type: 'spring', 
-        stiffness: 100, 
-        damping: 15 
-      } 
-    }
-  };
-
   return (
-    <motion.div 
-      className="flex flex-col gap-6" 
+    <div 
+      className="flex flex-col gap-6 animate-fade-in-up" 
       id="dashboard-tab-view"
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
     >
       {/* Welcome Message banner */}
-      <motion.div 
-        variants={itemVariants}
+      <div 
         className="flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
         <div>
@@ -116,10 +87,10 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
           <span className="font-display">KYC: {user.kycLevel}</span>
         </div>
-      </motion.div>
+      </div>
 
       {/* Wallet Balance Board */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Wallet Display Card */}
         <div className="md:col-span-2 relative overflow-hidden bg-slate-900 text-white rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
           {/* Subtle design circles */}
@@ -185,18 +156,16 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
 
       {/* Promotional Scrolling Banners */}
-      <motion.div 
-        variants={itemVariants}
+      <div 
         className="flex gap-4 overflow-x-auto pb-1.5 no-scrollbar select-none"
       >
         {promos.map((promo, idx) => (
-          <motion.div 
+          <div 
             key={idx} 
-            whileHover={{ y: -2, scale: 1.01 }}
-            className={`flex-shrink-0 p-4 rounded-xl bg-gradient-to-r ${promo.color} text-white flex flex-col justify-between border shadow-sm cursor-grab active:cursor-grabbing`}
+            className={`flex-shrink-0 p-4 rounded-xl bg-gradient-to-r ${promo.color} text-white flex flex-col justify-between border shadow-sm cursor-grab active:cursor-grabbing hover:-translate-y-0.5 hover:scale-[1.01] transition-all duration-200`}
             style={{ width: '280px', height: '110px' }}
           >
             <span className="text-xs font-semibold leading-snug font-display">{promo.text}</span>
@@ -204,12 +173,12 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               <span className="text-[9px] uppercase tracking-widest font-bold opacity-80">PROMO CODE: {promo.code}</span>
               <span className="text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded-full select-none">ACTIVE</span>
             </div>
-          </motion.div>
+          </div>
         ))}
-      </motion.div>
+      </div>
 
       {/* Primary Products Grid */}
-      <motion.div variants={itemVariants} className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3">
         <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display" id="services-title">
           {dict.quick_actions_header}
         </h2>
@@ -226,17 +195,11 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             const colors = serviceColors[key] || { bg: 'bg-emerald-50', text: 'text-emerald-600', hoverBg: 'group-hover:bg-emerald-600 group-hover:text-white' };
 
             return (
-              <motion.button
+              <button
                 key={key}
                 id={`quick-action-tab-${item.tab}`}
                 onClick={() => onNavigate(item.tab as ActiveTab)}
-                whileHover={{ 
-                  y: -5, 
-                  scale: 1.02,
-                  boxShadow: '0 12px 20px -8px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04)'
-                }}
-                whileTap={{ scale: 0.95 }}
-                className="bg-white p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 hover:border-emerald-500 cursor-pointer flex flex-col items-center justify-center gap-2 group transition-all duration-200 text-center shadow-sm select-none"
+                className="bg-white p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 hover:border-emerald-500 hover:-translate-y-1 hover:scale-[1.02] active:scale-95 cursor-pointer flex flex-col items-center justify-center gap-2 group transition-all duration-200 text-center shadow-sm hover:shadow-md select-none"
               >
                 <div className={`w-11 h-11 sm:w-12 sm:h-12 ${colors.bg} ${colors.text} rounded-xl flex items-center justify-center ${colors.hoverBg} transition-all duration-300`}>
                   {item.icon}
@@ -247,14 +210,14 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                 <p className="text-[10px] text-slate-400 mt-0.5 font-medium truncate w-full px-1">
                   {item.desc}
                 </p>
-              </motion.button>
+              </button>
             );
           })}
         </div>
-      </motion.div>
+      </div>
 
       {/* Saved Beneficiaries Slider */}
-      <motion.div variants={itemVariants} className="bg-slate-50/50 rounded-2xl p-4 border border-slate-105">
+      <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-105">
         <BeneficiarySelector
           beneficiaries={beneficiaries}
           onSelect={(b) => {
@@ -264,10 +227,10 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           activeType="all"
           label={dict.saved_beneficiaries}
         />
-      </motion.div>
+      </div>
 
       {/* Dual Layout: Recent Transactions + Referral Banner */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Transactions component */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -375,7 +338,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             </p>
           </div>
         </div>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   );
 };
