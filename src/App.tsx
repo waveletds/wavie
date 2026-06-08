@@ -136,7 +136,7 @@ export default function App() {
     details: any;
   } | null>(null);
 
-  // Sync state pools with localStorage
+  // Sync state pools with localStorage (fallback only)
   useEffect(() => {
     localStorage.setItem('topup_user', JSON.stringify(user));
   }, [user]);
@@ -148,6 +148,45 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('topup_bens', JSON.stringify(beneficiaries));
   }, [beneficiaries]);
+
+  // Synchronize state with backend SQLite SQL Database
+  useEffect(() => {
+    if (isAuthenticated && user.email) {
+      const syncDbAndState = async () => {
+        try {
+          const userEmail = encodeURIComponent(user.email);
+          
+          // 1. Fetch/Create User
+          const userRes = await fetch(`/api/user?email=${userEmail}`);
+          const userData = await userRes.json();
+          if (userData.success && userData.user) {
+            setUser(userData.user);
+          }
+
+          // 2. Fetch Transactions
+          const txsRes = await fetch(`/api/transactions?email=${userEmail}`);
+          const txsData = await txsRes.json();
+          if (txsData.success && txsData.transactions) {
+            setTransactions(txsData.transactions);
+          }
+
+          // 3. Fetch Beneficiaries
+          const bensRes = await fetch(`/api/beneficiaries?email=${userEmail}`);
+          const bensData = await bensRes.json();
+          if (bensData.success && bensData.beneficiaries) {
+            setBeneficiaries(bensData.beneficiaries);
+          }
+
+          addToast('Connected to persistent SQL database', 'success');
+        } catch (error) {
+          console.error('Backend state sync failed:', error);
+          addToast('Database offline, running with offline local fallback storage.', 'warning');
+        }
+      };
+      
+      syncDbAndState();
+    }
+  }, [isAuthenticated, user.email]);
 
   // Toast Alerts Trigger
   const addToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
@@ -192,6 +231,10 @@ export default function App() {
           addToast('Please input email and password variables.', 'error');
           return;
         }
+        setUser((prev) => ({
+          ...prev,
+          email: authEmail.trim(),
+        }));
         setIsAuthenticated(true);
         addToast(`Signed in as ${user.name || authEmail}`, 'success');
       } else {
@@ -216,7 +259,7 @@ export default function App() {
     if (!pendingPurchaseParams) return;
     const { type, amount, recipient, description, details } = pendingPurchaseParams;
 
-    // 1. Calculate Cashback margins (MTN/Airtel 2%, Glo/9mobile 3% cashback)
+    // Calculate Cashback margins (MTN/Airtel 2%, Glo/9mobile 3% cashback)
     let cashbackGained = 0;
     if (type === 'airtime' || type === 'data') {
       const net = details.network as string;
@@ -225,12 +268,6 @@ export default function App() {
         cashbackGained = (amount * matchedTelco.cashbackPercent) / 100;
       }
     }
-
-    // Deduct main balances and add cashback
-    setUser((prev) => ({
-      ...prev,
-      walletBalance: prev.walletBalance - amount + cashbackGained,
-    }));
 
     // Record central transaction
     const referenceRoot = type === 'airtime' ? 'AIR' : type === 'data' ? 'DAT' : type === 'electricity' ? 'ELC' : type === 'cable' ? 'CAB' : type === 'education' ? 'EDU' : 'WTH';
@@ -250,7 +287,29 @@ export default function App() {
       details,
     };
 
-    setTransactions((prev) => [newTx, ...prev]);
+    // Post transaction to server database API
+    fetch('/api/transactions/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: user.email, tx: newTx })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.user) {
+        setUser(data.user);
+        if (data.transaction) {
+          setTransactions((prev) => [data.transaction, ...prev]);
+        }
+      }
+    })
+    .catch(err => {
+      console.error('SQL saving error:', err);
+      setUser((prev) => ({
+        ...prev,
+        walletBalance: prev.walletBalance - amount + cashbackGained,
+      }));
+      setTransactions((prev) => [newTx, ...prev]);
+    });
 
     // Save automatic beneficiaries if opted in
     if (details.saveBeneficiary && details.beneficiaryName) {
@@ -264,8 +323,24 @@ export default function App() {
         value: recipient,
         provider: bProvider || 'Unknown',
       };
-      setBeneficiaries((prev) => [newBen, ...prev]);
-      addToast(`Added beneficiary "${details.beneficiaryName}" to favorites!`, 'success');
+      
+      fetch('/api/beneficiaries/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email, beneficiary: newBen })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setBeneficiaries((prev) => [newBen, ...prev]);
+          addToast(`Added beneficiary "${details.beneficiaryName}" to favorites!`, 'success');
+        }
+      })
+      .catch(err => {
+        console.error('SQL saving error:', err);
+        setBeneficiaries((prev) => [newBen, ...prev]);
+        addToast(`Added beneficiary "${details.beneficiaryName}" (offline fallback)`, 'success');
+      });
     }
 
     // Credit additional cashback transaction ledger entry if cashback exists
@@ -282,7 +357,29 @@ export default function App() {
           recipient: 'Wallet Balance',
           reference: `TN-CSH-${Math.floor(100000 + Math.random() * 899999)}`,
         };
-        setTransactions((prev) => [cashbackTx, ...prev]);
+        
+        fetch('/api/transactions/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: user.email, tx: cashbackTx })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.user) {
+            setUser(data.user);
+            if (data.transaction) {
+              setTransactions((prev) => [data.transaction, ...prev]);
+            }
+          }
+        })
+        .catch(err => {
+          console.error('SQL saving error:', err);
+          setUser((prev) => ({
+            ...prev,
+            walletBalance: prev.walletBalance + cashbackGained,
+          }));
+          setTransactions((prev) => [cashbackTx, ...prev]);
+        });
         addToast(`Cashback bonus of ₦${cashbackGained.toFixed(2)} credited!`, 'success');
       }, 900);
     }
@@ -296,11 +393,6 @@ export default function App() {
   };
 
   const handleWalletFunding = (amount: number, description: string) => {
-    setUser((prev) => ({
-      ...prev,
-      walletBalance: prev.walletBalance + amount,
-    }));
-
     const newTx: Transaction = {
       id: `tx_fund_${Date.now()}`,
       type: 'funding',
@@ -313,15 +405,32 @@ export default function App() {
       reference: `TN-DEP-${Math.floor(10000000 + Math.random() * 89999999)}`,
     };
 
-    setTransactions((prev) => [newTx, ...prev]);
+    fetch('/api/transactions/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: user.email, tx: newTx })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.user) {
+        setUser(data.user);
+        if (data.transaction) {
+          setTransactions((prev) => [data.transaction, ...prev]);
+        }
+        addToast(`Successfully funded wallet with ₦${amount.toLocaleString()}`, 'success');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      setUser((prev) => ({
+        ...prev,
+        walletBalance: prev.walletBalance + amount,
+      }));
+      setTransactions((prev) => [newTx, ...prev]);
+    });
   };
 
   const handleWithdrawalOutflow = (amount: number, fee: number, description: string, details: any) => {
-    setUser((prev) => ({
-      ...prev,
-      walletBalance: prev.walletBalance - (amount + fee),
-    }));
-
     const newTx: Transaction = {
       id: `tx_wth_${Date.now()}`,
       type: 'withdrawal',
@@ -335,10 +444,34 @@ export default function App() {
       details,
     };
 
-    setTransactions((prev) => [newTx, ...prev]);
-    setActiveReceiptTx(newTx);
-    setIsReceiptModalOpen(true);
-    addToast('Transfer out settled successfully!', 'success');
+    fetch('/api/transactions/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: user.email, tx: newTx })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.user) {
+        setUser(data.user);
+        if (data.transaction) {
+          setTransactions((prev) => [data.transaction, ...prev]);
+        }
+        setActiveReceiptTx(newTx);
+        setIsReceiptModalOpen(true);
+        addToast('Transfer out settled successfully!', 'success');
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      setUser((prev) => ({
+        ...prev,
+        walletBalance: prev.walletBalance - (amount + fee),
+      }));
+      setTransactions((prev) => [newTx, ...prev]);
+      setActiveReceiptTx(newTx);
+      setIsReceiptModalOpen(true);
+      addToast('Transfer out settled (offline fallback)', 'success');
+    });
   };
 
   const menuItems = [
@@ -864,7 +997,24 @@ export default function App() {
                   {activeTab === 'settings' && (
                     <SettingsConfig
                       user={user}
-                      onUpdateUser={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
+                      onUpdateUser={(updated) => {
+                        fetch('/api/user/update', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ email: user.email, ...updated })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                          if (data.success && data.user) {
+                            setUser(data.user);
+                            addToast('Profile updated in SQL Database', 'success');
+                          }
+                        })
+                        .catch(err => {
+                          console.error(err);
+                          setUser((prev) => ({ ...prev, ...updated }));
+                        });
+                      }}
                       lang={lang}
                       onChangeLang={(l) => setLang(l)}
                       addToast={addToast}
