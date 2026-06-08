@@ -115,9 +115,9 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
       </div>
 
       {/* Wallet Balance Board */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="w-full">
         {/* Wallet Display Card */}
-        <div className="md:col-span-2 relative overflow-hidden bg-slate-900 text-white rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
+        <div className="relative overflow-hidden bg-slate-900 text-white rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
           {/* Subtle design circles */}
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-600/10 rounded-full blur-2xl group-hover:bg-emerald-600/20 transition-all duration-300" />
           <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-emerald-600/5 rounded-full blur-xl" />
@@ -154,31 +154,6 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               <ArrowUpRight className="w-4 h-4 text-slate-300" />
               Transfer
             </button>
-          </div>
-        </div>
-
-        {/* Promo and mini info block */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col justify-between">
-          <div className="flex flex-col">
-            <div className="inline-flex py-1.5 px-2.5 bg-amber-50 text-amber-700 text-[10px] font-extrabold font-display rounded-lg max-w-max uppercase tracking-wider gap-1 items-center">
-              <Zap className="w-3.5 h-3.5 animate-bounce" />
-              {dict.cashback_tag}
-            </div>
-            <p className="text-sm text-slate-500 mt-3 leading-relaxed">
-              {lang === 'pidgin' 
-                ? 'Buy airtime/data credit for yourself or any family and get instant cashback straight to your main wallet account.' 
-                : 'Purchase discount telecom packages directly using automated routes, retaining margins within your virtual wallet.'}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 pt-4 border-t border-slate-50 mt-4">
-            <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center font-bold text-indigo-600 font-display">
-              {user.referredCount}
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{dict.referred_label}</span>
-              <span className="text-sm font-bold text-slate-800 font-display">₦{user.referralEarnings.toLocaleString('en-NG')} {lang === 'pidgin' ? 'Earned' : 'Cashbacks'}</span>
-            </div>
           </div>
         </div>
       </div>

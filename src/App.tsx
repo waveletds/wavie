@@ -631,28 +631,35 @@ export default function App() {
           {/* MAIN PAGE CONTAINER */}
           <main className="flex-grow flex flex-col pb-20 md:pb-6 max-w-7xl mx-auto w-full px-4 md:px-6 py-6 overflow-x-hidden">
             
-            {/* UNIFIED TOP BAR FOR NAV, USER, NOTIFICATIONS (Top Left Focus) */}
+            {/* UNIFIED TOP BAR FOR NAV, USER, NOTIFICATIONS (Top Left Focus Navigation, Top Right Actions) */}
             <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 mb-6 border-b border-slate-205">
+               {/* Left side: Navigation links row */}
                <div className="flex items-center gap-3 flex-wrap">
-                  {/* User Profile avatar capsule */}
-                  <div 
-                    id="top-user-profile-capsule"
-                    onClick={() => {
-                      setActiveTab('settings');
-                      addToast('Navigated to profile configurations', 'info');
-                    }}
-                    className="flex items-center gap-2.5 p-1.5 pr-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-full cursor-pointer transition-all active:scale-95 shadow-sm"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-black font-display text-xs flex items-center justify-center relative">
-                      OJ
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white animate-pulse" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Account</span>
-                      <span className="text-xs font-black text-slate-800 font-display -mt-0.5">{user.name}</span>
-                    </div>
-                  </div>
+                  {/* Top-left Quick-Navigation Row */}
+                  <nav className="flex items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200">
+                    {menuItems.slice(0, 4).map((item) => (
+                      <button
+                        key={item.id}
+                        id={`top-navigation-link-${item.id}`}
+                        onClick={() => {
+                          setActiveTab(item.id as ActiveTab);
+                          setShowNotifications(false);
+                        }}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold font-sans transition-all active:scale-95 cursor-pointer ${
+                          activeTab === item.id
+                            ? 'bg-slate-900 text-white shadow-sm'
+                            : 'text-slate-650 hover:bg-slate-200'
+                        }`}
+                      >
+                        {item.icon}
+                        <span className="hidden sm:inline">{item.label}</span>
+                      </button>
+                    ))}
+                  </nav>
+               </div>
 
+               {/* Right side: Notification and User Account Info */}
+               <div className="flex items-center gap-3 justify-end ml-auto">
                   {/* Notification Bell with Badge */}
                   <div className="relative">
                      <button
@@ -669,7 +676,7 @@ export default function App() {
                      {showNotifications && (
                        <div 
                          id="notifications-dropdown-menu"
-                         className="absolute left-0 mt-3 w-[290px] sm:w-[360px] bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-4 animate-scale-in"
+                         className="absolute right-0 mt-3 w-[290px] sm:w-[360px] bg-white border border-slate-100 rounded-2xl shadow-xl z-50 p-4 animate-scale-in"
                        >
                          <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-3">
                            <span className="text-xs font-bold text-slate-800 font-display uppercase tracking-wider">Active Alerts</span>
@@ -711,45 +718,42 @@ export default function App() {
                      )}
                   </div>
 
-                  {/* Top-left Quick-Navigation Row */}
-                  <nav className="flex items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200 ml-2">
-                    {menuItems.slice(0, 4).map((item) => (
-                      <button
-                        key={item.id}
-                        id={`top-navigation-link-${item.id}`}
-                        onClick={() => {
-                          setActiveTab(item.id as ActiveTab);
-                          setShowNotifications(false);
-                        }}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold font-sans transition-all active:scale-95 cursor-pointer ${
-                          activeTab === item.id
-                            ? 'bg-slate-900 text-white shadow-sm'
-                            : 'text-slate-650 hover:bg-slate-200'
-                        }`}
-                      >
-                        {item.icon}
-                        <span className="hidden sm:inline">{item.label}</span>
-                      </button>
-                    ))}
-                  </nav>
-               </div>
+                  {/* User Profile avatar capsule */}
+                  <div 
+                    id="top-user-profile-capsule"
+                    onClick={() => {
+                      setActiveTab('settings');
+                      addToast('Navigated to profile configurations', 'info');
+                    }}
+                    className="flex items-center gap-2.5 p-1.5 pr-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-full cursor-pointer transition-all active:scale-95 shadow-sm"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-black font-display text-xs flex items-center justify-center relative">
+                      OJ
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white animate-pulse" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Account</span>
+                      <span className="text-xs font-black text-slate-800 font-display -mt-0.5">{user.name}</span>
+                    </div>
+                  </div>
 
-               {/* Right side status indicator */}
-               <div className="hidden sm:flex items-center gap-2">
-                 <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest font-mono">
-                   Wavie Portal ⚡
-                 </span>
-                 <button
-                   id="top-right-logout-btn"
-                   onClick={() => {
-                     setIsAuthenticated(false);
-                     addToast('Logged out.', 'info');
-                   }}
-                   className="p-1.5 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-full transition-all active:scale-95 border border-slate-200 cursor-pointer"
-                   title="Sign Out"
-                 >
-                   <LogOut className="w-3.5 h-3.5" />
-                 </button>
+                  {/* Right side status indicator */}
+                  <div className="hidden sm:flex items-center gap-2">
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest font-mono select-none">
+                      Wavie Portal ⚡
+                    </span>
+                    <button
+                      id="top-right-logout-btn"
+                      onClick={() => {
+                        setIsAuthenticated(false);
+                        addToast('Logged out.', 'info');
+                      }}
+                      className="p-1.5 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-full transition-all active:scale-95 border border-slate-200 cursor-pointer"
+                      title="Sign Out"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                </div>
             </header>
 
