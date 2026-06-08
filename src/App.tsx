@@ -99,6 +99,8 @@ export default function App() {
       kycLevel: 'Tier 1',
       transactionPin: '1111', // default sandboxed transaction pin
       isPinSet: true,
+      isWebAuthnEnabled: false,
+      webAuthnCredentialId: '',
     };
   });
 
@@ -196,12 +198,6 @@ export default function App() {
 
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  // Fast login triggers
-  const executeSandboxFastLogin = () => {
-    setIsAuthenticated(true);
-    addToast('Logged in successfully (Sandbox account authenticated). Welcome!', 'success');
   };
 
   // Auth Submit Handlers
@@ -525,6 +521,8 @@ export default function App() {
         userPin={user.transactionPin}
         amount={pendingPurchaseParams ? pendingPurchaseParams.amount : 0}
         description={pendingPurchaseParams ? pendingPurchaseParams.description : ''}
+        isWebAuthnEnabled={user.isWebAuthnEnabled}
+        webAuthnCredentialId={user.webAuthnCredentialId}
         onPinVerified={executeSettledPurchase}
         onPinSetupComplete={(newPin) => {
           setUser((prev) => ({
@@ -721,7 +719,7 @@ export default function App() {
                   type="submit"
                   className="w-full py-3.5 mt-2 text-white bg-slate-900 border border-slate-950 hover:bg-black rounded-xl font-bold font-display text-sm hover:shadow-md transition-all active:scale-95"
                 >
-                  {isRegistering ? 'Complete Registration & Login' : 'Login Sandbox Interface'}
+                  {isRegistering ? 'Complete Registration & Login' : 'Secure Sign In'}
                 </button>
               </form>
 
@@ -736,18 +734,6 @@ export default function App() {
                     ? 'Already have an account? Login here' 
                     : "New to Wavie? Secure an account here"}
                 </button>
-
-                <div className="border-t border-slate-100 pt-4 mt-1.5 flex flex-col gap-2">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">🌟 Developer Demo Fast Login</span>
-                  <button
-                    id="fast-login-bypass-btn"
-                    onClick={executeSandboxFastLogin}
-                    className="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold font-display rounded-xl transition-all flex items-center justify-center gap-1.5 border border-slate-150"
-                  >
-                    Bypass Portal with Developer Sandbox Account
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
               </div>
             </div>
           </div>

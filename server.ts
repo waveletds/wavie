@@ -32,6 +32,8 @@ async function startServer() {
       kycLevel: dbUser.kyc_level,
       transactionPin: dbUser.transaction_pin,
       isPinSet: dbUser.is_pin_set === 1,
+      isWebAuthnEnabled: dbUser.is_webauthn_enabled === 1,
+      webAuthnCredentialId: dbUser.webauthn_credential_id || '',
     };
   };
 
@@ -142,7 +144,8 @@ async function startServer() {
   // 2. API: Update User details
   app.post('/api/user/update', async (req: Request, res: Response, next: NextFunction) => {
     const { 
-      email, name, phone, walletBalance, referralEarnings, referredCount, kycLevel, transactionPin, isPinSet 
+      email, name, phone, walletBalance, referralEarnings, referredCount, kycLevel, transactionPin, isPinSet,
+      isWebAuthnEnabled, webAuthnCredentialId
     } = req.body;
 
     if (!email) {
@@ -164,6 +167,8 @@ async function startServer() {
       if (kycLevel !== undefined) updates.kyc_level = kycLevel;
       if (transactionPin !== undefined) updates.transaction_pin = transactionPin;
       if (isPinSet !== undefined) updates.is_pin_set = isPinSet ? 1 : 0;
+      if (isWebAuthnEnabled !== undefined) updates.is_webauthn_enabled = isWebAuthnEnabled ? 1 : 0;
+      if (webAuthnCredentialId !== undefined) updates.webauthn_credential_id = webAuthnCredentialId;
 
       await db('users').where({ email }).update(updates);
 

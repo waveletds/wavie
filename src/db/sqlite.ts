@@ -47,8 +47,19 @@ export async function runMigrations() {
       table.string('kyc_level').defaultTo('Tier 1').notNullable();
       table.string('transaction_pin').defaultTo('1111').notNullable();
       table.integer('is_pin_set').defaultTo(1).notNullable(); // 1 = true, 0 = false
+      table.integer('is_webauthn_enabled').defaultTo(0).notNullable();
+      table.text('webauthn_credential_id').nullable();
     });
     console.log('✔ Migrated "users" table.');
+  } else {
+    const hasWebauthnEnabled = await db.schema.hasColumn('users', 'is_webauthn_enabled');
+    if (!hasWebauthnEnabled) {
+      await db.schema.alterTable('users', (table) => {
+        table.integer('is_webauthn_enabled').defaultTo(0).notNullable();
+        table.text('webauthn_credential_id').nullable();
+      });
+      console.log('✔ Added WebAuthn columns to existing "users" table.');
+    }
   }
 
   // 2. Transactions table with UNIQUE reference & foreign_keys

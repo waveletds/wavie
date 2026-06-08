@@ -62,6 +62,8 @@ export interface UserState {
   kycLevel: KYCLevel;
   transactionPin: string; // 4-digit PIN
   isPinSet: boolean;
+  isWebAuthnEnabled?: boolean;
+  webAuthnCredentialId?: string;
 }
 
 export interface DataPlan {
