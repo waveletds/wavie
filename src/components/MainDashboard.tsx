@@ -110,12 +110,6 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             {lang === 'pidgin' ? 'Wetin you wan pay for today?' : 'Choose standard services with high success delivery rates.'}
           </p>
         </div>
-
-        {/* KYC display */}
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-full border border-slate-200 text-xs font-semibold text-slate-600">
-          <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-          <span className="font-display">KYC: {user.kycLevel}</span>
-        </div>
       </motion.div>
 
       {/* Wallet Balance Board */}
@@ -138,7 +132,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               </span>
               <span className="text-3xl md:text-4xl font-extrabold font-display mt-2 flex items-baseline gap-1" id="balance-amount">
                 ₦{user.walletBalance.toLocaleString('en-NG')}
-                <span className="text-xs font-mono font-medium text-slate-400">.00 (Wallet ID: {user.phone})</span>
+                <span className="text-xs font-mono font-medium text-slate-400">.00</span>
               </span>
             </div>
             <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md">

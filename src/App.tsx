@@ -719,22 +719,23 @@ export default function App() {
                      )}
                   </div>
 
-                  {/* User Profile avatar capsule */}
+                  {/* User Profile avatar picture only, no name text displaying */}
                   <div 
                     id="top-user-profile-capsule"
                     onClick={() => {
                       setActiveTab('settings');
                       addToast('Navigated to profile configurations', 'info');
                     }}
-                    className="flex items-center gap-2.5 p-1.5 pr-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-full cursor-pointer transition-all active:scale-95 shadow-sm"
+                    className="flex items-center p-1 bg-white hover:bg-slate-50 border border-slate-200 rounded-full cursor-pointer transition-all active:scale-95 shadow-sm"
                   >
-                    <div className="w-8 h-8 rounded-full bg-emerald-600 text-white font-black font-display text-xs flex items-center justify-center relative">
-                      OJ
+                    <div className="w-8 h-8 rounded-full relative">
+                      <img 
+                        src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop" 
+                        alt="User Profile"
+                        className="w-full h-full rounded-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
                       <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white animate-pulse" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Account</span>
-                      <span className="text-xs font-black text-slate-800 font-display -mt-0.5">{user.name}</span>
                     </div>
                   </div>
 
