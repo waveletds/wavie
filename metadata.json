@@ -1,0 +1,8 @@
+{
+  "name": "TopUpNaija",
+  "description": "Secure, lightning-fast digital wallet for virtual top-up and bills in Nigeria. Recharge airtime or data, pay dynamic electricity bills, renew cable TV, and purchase educational ePINs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
