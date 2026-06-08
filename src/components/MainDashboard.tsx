@@ -6,6 +6,7 @@ import {   Wallet, ArrowDownLeft, ArrowUpRight, ArrowRight, Phone,
 import { UserState, Transaction, SavedBeneficiary, ActiveTab, Language } from '../types';
 import { PIDGIN_DICT, ENGLISH_DICT } from '../data';
 import { BeneficiarySelector } from './BeneficiarySelector';
+import { motion } from 'motion/react';
 
 interface MainDashboardProps {
   user: UserState;
@@ -90,11 +91,14 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 
   return (
     <div 
-      className="flex flex-col gap-6 animate-fade-in-up" 
+      className="flex flex-col gap-6" 
       id="dashboard-tab-view"
     >
       {/* Welcome Message banner */}
-      <div 
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: 'easeOut' }}
         className="flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
         <div>
@@ -112,10 +116,15 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
           <span className="font-display">KYC: {user.kycLevel}</span>
         </div>
-      </div>
+      </motion.div>
 
       {/* Wallet Balance Board */}
-      <div className="w-full">
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.05, ease: 'easeOut' }}
+        className="w-full"
+      >
         {/* Wallet Display Card */}
         <div className="relative overflow-hidden bg-slate-900 text-white rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
           {/* Subtle design circles */}
@@ -129,37 +138,45 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               </span>
               <span className="text-3xl md:text-4xl font-extrabold font-display mt-2 flex items-baseline gap-1" id="balance-amount">
                 ₦{user.walletBalance.toLocaleString('en-NG')}
-                <span className="text-xs font-mono font-medium text-slate-400">.00 (Wallet ID/No: {user.phone})</span>
+                <span className="text-xs font-mono font-medium text-slate-400">.00 (Wallet ID: {user.phone})</span>
               </span>
             </div>
             <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md">
-              <Wallet className="w-6 h-6 text-slate-300" />
+              <Wallet className="w-6 h-6 text-slate-300 animate-pulse-slow" />
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 mt-8 z-10 pt-2 border-t border-white/5">
-            <button
+          {/* Deposit / Transfer action buttons with elite transitions */}
+          <div className="flex flex-col sm:flex-row gap-4 mt-8 z-10 pt-4 border-t border-white/10">
+            <motion.button
               id="dashboard-deposit-btn"
               onClick={() => onNavigate('wallet')}
-              className="flex-grow py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold rounded-xl text-xs font-display flex items-center justify-center gap-2 transition-all shadow active:scale-95 cursor-pointer"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex-grow py-3 bg-emerald-500 hover:bg-emerald-450 hover:shadow-emerald-500/15 text-slate-950 font-bold rounded-xl text-xs sm:text-sm font-display flex items-center justify-center gap-2.5 transition-all shadow-lg cursor-pointer group"
             >
-              <ArrowDownLeft className="w-4 h-4 text-slate-900 transition-transform" />
+              <ArrowDownLeft className="w-4 h-4 text-slate-950 transition-transform duration-300 group-hover:translate-y-0.5 group-hover:-translate-x-0.5" />
               Deposit
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               id="dashboard-transfer-btn"
               onClick={() => onNavigate('wallet')}
-              className="flex-grow py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold font-display flex items-center justify-center gap-2 backdrop-blur-md border border-white/15 transition-all active:scale-95 cursor-pointer"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex-grow py-3 bg-white/5 hover:bg-white/10 border border-white/15 hover:border-white/30 text-white rounded-xl text-xs sm:text-sm font-bold font-display flex items-center justify-center gap-2.5 backdrop-blur-md transition-all cursor-pointer group"
             >
-              <ArrowUpRight className="w-4 h-4 text-slate-300" />
+              <ArrowUpRight className="w-4 h-4 text-slate-300 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
               Transfer
-            </button>
+            </motion.button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Promotional Scrolling Banners */}
-      <div 
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.1, ease: 'easeOut' }}
         className="flex gap-4 overflow-x-auto pb-1.5 no-scrollbar select-none"
       >
         {promos.map((promo, idx) => (
@@ -175,10 +192,15 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             </div>
           </div>
         ))}
-      </div>
+      </motion.div>
 
       {/* Primary Products Grid */}
-      <div className="flex flex-col gap-3">
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.15, ease: 'easeOut' }}
+        className="flex flex-col gap-3"
+      >
         <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display" id="services-title">
           {dict.quick_actions_header}
         </h2>
@@ -214,10 +236,15 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             );
           })}
         </div>
-      </div>
+      </motion.div>
 
       {/* Saved Beneficiaries Slider */}
-      <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-105">
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.2, ease: 'easeOut' }}
+        className="bg-slate-50/50 rounded-2xl p-4 border border-slate-105"
+      >
         <BeneficiarySelector
           beneficiaries={beneficiaries}
           onSelect={(b) => {
@@ -227,12 +254,17 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           activeType="all"
           label={dict.saved_beneficiaries}
         />
-      </div>
+      </motion.div>
 
       {/* Dual Layout: Recent Transactions + Referral Banner */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Transactions component */}
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col gap-4">
+        <motion.div 
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.25, ease: 'easeOut' }}
+          className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col gap-4"
+        >
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-450 uppercase tracking-wider font-display">
               {dict.recent_activities_header}
@@ -295,7 +327,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               })
             )}
           </div>
-        </div>
+        </motion.div>
 
         {/* Dynamic Referral Card */}
         <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-md flex flex-col justify-between relative overflow-hidden group">
