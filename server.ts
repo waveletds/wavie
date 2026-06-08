@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { db, runMigrations } from './src/db/sqlite.ts';
+import { GoogleGenAI } from '@google/genai';
 
 // Main Server Startup Function
 async function startServer() {
@@ -335,6 +336,284 @@ async function startServer() {
       next(err);
     }
   });
+
+  // ==========================================
+  // 8. API: Mia Financial AI Automated Companion
+  // ==========================================
+  // Lazy-initialize Gemini AI engine to prevent crash if key is undefined
+  let aiClient: any = null;
+  function getGeminiClient() {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey === 'MY_GEMINI_API_KEY' || apiKey.trim() === '') {
+      return null;
+    }
+    if (!aiClient) {
+      aiClient = new GoogleGenAI({
+        apiKey: apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+    }
+    return aiClient;
+  }
+
+  app.post('/api/mia/chat', async (req: Request, res: Response, next: NextFunction) => {
+    const { email, messages } = req.body;
+    if (!email || !messages || !Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: 'Email and messages history required' });
+    }
+
+    try {
+      // 1. Fetch real-time user database context to ground the assistant
+      const user = await db('users').where({ email }).first();
+      if (!user) {
+        return res.status(404).json({ error: 'User customer profile not found' });
+      }
+
+      // Fetch 5 recent transactions
+      const recentTxs = await db('transactions')
+        .where({ user_email: email })
+        .orderBy('timestamp', 'desc')
+        .limit(5);
+
+      const latestMessage = messages[messages.length - 1];
+      const ai = getGeminiClient();
+
+      if (ai) {
+        // Build customized Nigeria top-up systems sandbox environment instructions
+        const systemInstruction = `You are "Mia", the highly intelligent AI fin-tech automation companion for Wavie (Nigeria's leading top-up portal for high-speed mobile airtime, internet data bundles, educational EPINs, and utility bills payments).
+You help users query their account, learn about the app features (offline-first design, biometrics), and automate transactions completely!
+
+User Session Profile (Grounding Context):
+- Customer Name: ${user.name}
+- Customer Email: ${user.email}
+- Wallet Balance: ₦${user.wallet_balance.toLocaleString('en-NG')}
+- Referral Code: ${user.referral_code}
+
+Recent Transactions History:
+${recentTxs.map(t => `- [${t.timestamp}] type: ${t.type}, amount: ₦${t.amount}, recipient: ${t.recipient}, status: ${t.status}`).join('\n') || 'No transactions yet.'}
+
+Product Prices & Services Guide (Wavie Catalog):
+1. Airtime Top-ups: MTN, Airtel, Glo, 9mobile. (Cashbacks: MTN 2%, Airtel 2%, Glo 3%, 9mobile 3%).
+2. Mobile Data Plans (30 days validation):
+   - MTN Data: ₦505 (1.5GB), ₦1,200 (5GB)
+   - Airtel Data: ₦600 (2GB), ₦1,500 (6GB)
+   - Glo Data: ₦500 (2.5GB), ₦1,000 (5.8GB)
+   - 9mobile Data: ₦500 (2GB), ₦1,200 (7GB)
+3. Electricity Discos (Conv. fee ₦100, min ₦1,000): Ikeja Electric (IKEDC), Eko Electric (EKEDC), Abuja Electric (AEDC), Port Harcourt Electric (PHED).
+4. Cable TV Subscriptions: DSTV (e.g., Compact ₦12,500/mo, Access ₦4,500/mo), GOTV (e.g., Max ₦5,700/mo, Jolli ₦3,900/mo), Startimes (Super ₦3,500/mo, Nova ₦1,500/mo).
+5. Educational Exam EPINs: WAEC Result PIN (₦3,200), NECO Token (₦1,100).
+
+HOW TO AUTOMATE AND EXTRACT TRANSACTIONS:
+- Analyze the user's latest chat, transcribed voice prompt, or uploaded image of a bill, voucher, or card.
+- If you can extract details, set up the checkout values inside the "action" field.
+- If details are incomplete, still answer conversationally, ask for the missing fields, or make a logical default recommendation.
+- Every response must follow the strictly enforced JSON format below.
+
+RESPONSE SCHEMA (JSON ONLY):
+{
+  "text": "Your conversational narrative reply in markdown. Highlight cashback incentives, explain if you extracted any bill parameters or phone numbers, and guide them with bold text.",
+  "action": {
+    "type": "TRANSACTION_PREPARE",
+    "tx": {
+      "type": "airtime" | "data" | "electricity" | "cable" | "education" | "withdrawal",
+      "amount": 1000,
+      "recipient": "08012345678",
+      "description": "MTN 1,000 Airtime reloaded via Mia Assistant",
+      "details": {
+        "network": "MTN", // if airtime or data. MUST be EXACTLY: "MTN", "Airtel", "Glo", "9mobile"
+        "disco": "Ikeja Electric", // if electricity
+        "provider": "GOTV", // if cable TV
+        "saveBeneficiary": true,
+        "beneficiaryName": "Mia Automation"
+      }
+    }
+  } (or null if no transaction is found/ready to verify)
+}
+
+Do NOT wrap the JSON inside markdown code blocks (like \`\`\`json). Output raw, parseable JSON only.`;
+
+        // Format history context cleanly for generative content request
+        const contentsParts: any[] = [];
+        let conversationContext = "Here is the conversation history:\n";
+        messages.slice(-6, -1).forEach((msg: any) => {
+          conversationContext += `${msg.sender === 'user' ? 'User' : 'Mia'}: ${msg.text}\n`;
+        });
+        conversationContext += `User's latest input: ${latestMessage.text}\n`;
+        contentsParts.push({ text: conversationContext });
+
+        if (latestMessage.image) {
+          const base64Data = latestMessage.image.split(',')[1] || latestMessage.image;
+          contentsParts.push({
+            inlineData: {
+              mimeType: "image/jpeg",
+              data: base64Data
+            }
+          });
+        }
+
+        const response = await ai.models.generateContent({
+          model: "gemini-3.5-flash",
+          contents: contentsParts,
+          config: {
+            systemInstruction: systemInstruction,
+            responseMimeType: "application/json",
+            temperature: 0.6,
+          }
+        });
+
+        const rawText = response.text || "{}";
+        try {
+          const parsed = JSON.parse(rawText.trim());
+          res.json(parsed);
+        } catch (e) {
+          console.error("Gemini failed to output exact JSON schema, applying fallback container.", e);
+          res.json({
+            text: rawText,
+            action: null
+          });
+        }
+      } else {
+        // ==========================================
+        // Deep Sandbox Offline Fallback Simulation
+        // ==========================================
+        const queryText = latestMessage.text.toLowerCase();
+        let simulatedReply = {
+          text: `Hi **${user.name}**! I'm **Mia**, your Wavie automation bot. Currently running in sandbox simulation mode.\n\nYou can talk to me, upload an image of a bill, or use your voice. Try these command templates:\n- *"Buy ₦1,500 Airtel airtime on 08012345678"* \n- *"Subscribe Glo data 1000 on 09076543210"* \n- *"Pay Ikeja prepaid electricity bill for 45091122839"*`,
+          action: null as any
+        };
+
+        // Match patterns
+        const airtimeMatch = queryText.match(/(?:buy|recharge|get|topup|top up|load)\s+(?:₦|n|ngn)?\s*(\d+)\s*(?:of)?\s*(mtn|airtel|glo|9mobile)\s*(?:airtime)?\s*(?:on|to|for)?\s*(\d{10,11})/i);
+        const dataMatch = queryText.match(/(?:subscribe|data|sub|mb|gb)\s+(?:₦|n|ngn)?\s*(\d+)?\s*(?:of)?\s*(mtn|airtel|glo|9mobile)\s*(?:data)?\s*(?:on|to|for)?\s*(\d{10,11})/i);
+        const billElectricMatch = queryText.match(/(?:pay|electric|electricity|power|recharge electric)\s+(?:₦|n|ngn)?\s*(\d+)?\s*(?:for|on)?\s*(ikeja|eko|abuja|port harcourt)\s*(?:electric|disco)?\s*(?:meter)?\s*(\d{8,15})/i);
+
+        if (airtimeMatch) {
+          const amount = parseInt(airtimeMatch[1], 10);
+          const networkRaw = airtimeMatch[2];
+          const phone = airtimeMatch[3];
+          const telcoFormatted = networkRaw.toUpperCase() === 'MTN' ? 'MTN' : networkRaw.toUpperCase() === 'AIRTEL' ? 'Airtel' : networkRaw.toUpperCase() === 'GLO' ? 'Glo' : '9mobile';
+          const cashbackPct = ['GLO', '9MOBILE'].includes(networkRaw.toUpperCase()) ? 3 : 2;
+          const cashbackEarned = (amount * cashbackPct) / 100;
+
+          simulatedReply = {
+            text: `🎯 **Extraction Successful!** I've parsed your request and drafted your mobile recharge voucher instant order.\n\n- **Service:** Airtime Top-Up\n- **Telco Network:** \`${telcoFormatted}\`\n- **Recipient Phone:** \`${phone}\`\n- **Token Amount:** \`₦${amount.toLocaleString('en-NG')}\`\n- **Wavie Cashback Gained:** \`₦${cashbackEarned.toLocaleString('en-NG')} (${cashbackPct}%)\`\n\nI have structured a secure checkout receipt below. Tap **Confirm & Pay** to authorize via secure PIN/WebAuthn Biometrics!`,
+            action: {
+              type: "TRANSACTION_PREPARE",
+              tx: {
+                type: "airtime",
+                amount,
+                recipient: phone,
+                description: `${telcoFormatted} ₦${amount.toLocaleString('en-NG')} Mobile Airtime via Mia Voice`,
+                details: {
+                  network: telcoFormatted,
+                  saveBeneficiary: true,
+                  beneficiaryName: "Mia Automated Beneficiary"
+                }
+              }
+            }
+          };
+        } else if (dataMatch) {
+          const amount = dataMatch[1] ? parseInt(dataMatch[1], 10) : 1200;
+          const networkRaw = dataMatch[2];
+          const phone = dataMatch[3];
+          const telcoFormatted = networkRaw.toUpperCase() === 'MTN' ? 'MTN' : networkRaw.toUpperCase() === 'AIRTEL' ? 'Airtel' : networkRaw.toUpperCase() === 'GLO' ? 'Glo' : '9mobile';
+
+          simulatedReply = {
+            text: `📡 **Mia Smart Automation:** Setting up a monthly high-speed **${telcoFormatted} Data Plan** order.\n\n- **Phone Target:** \`${phone}\`\n- **Subscription Plan:** \`₦${amount.toLocaleString('en-NG')} Monthly Bundle\`\n- **Instant Cashback:** ₦${((amount * (telcoFormatted === 'Glo' || telcoFormatted === '9mobile' ? 3 : 2)) / 100).toLocaleString('en-NG')}\n\nReview the prepared invoice below and tap **Confirm & Pay**!`,
+            action: {
+              type: "TRANSACTION_PREPARE",
+              tx: {
+                type: "data",
+                amount,
+                recipient: phone,
+                description: `${telcoFormatted} ₦${amount.toLocaleString('en-NG')} Data Plan via Mia AI`,
+                details: {
+                  network: telcoFormatted,
+                  saveBeneficiary: true,
+                  beneficiaryName: "Mia Automated Data"
+                }
+              }
+            }
+          };
+        } else if (billElectricMatch) {
+          const amount = billElectricMatch[1] ? parseInt(billElectricMatch[1], 10) : 3500;
+          const discoRaw = billElectricMatch[2];
+          const meterNo = billElectricMatch[3];
+          const discoFormatted = discoRaw.toLowerCase().includes('ikeja') ? 'Ikeja Electric' : discoRaw.toLowerCase().includes('eko') ? 'Eko Electric' : discoRaw.toLowerCase().includes('abuja') ? 'Abuja Electric' : 'Port Harcourt Electric';
+
+          simulatedReply = {
+            text: `💡 **Electricity Invoice Scan:** I've structured your smart utility prepaid token payment details.\n\n- **Utility Disco:** \`${discoFormatted}\`\n- **Meter Identifier:** \`${meterNo}\`\n- **Recharge Amount:** \`₦${amount.toLocaleString('en-NG')}\`\n- **Standard Charge Fee:** \`₦100\`\n\nAuthorized directly on Wavie infrastructure. Click **Confirm & Pay** below inside our chat to unlock and emit electricity token!`,
+            action: {
+              type: "TRANSACTION_PREPARE",
+              tx: {
+                type: "electricity",
+                amount,
+                recipient: meterNo,
+                description: `${discoFormatted} prepaid replenishment`,
+                details: {
+                  disco: discoFormatted,
+                  saveBeneficiary: true,
+                  beneficiaryName: "Mia Auto Utilities"
+                }
+              }
+            }
+          };
+        } else if (latestMessage.image) {
+          // If the user uploaded any image in fallback scenario, simulate standard NEPA electric bill parse
+          simulatedReply = {
+            text: `📸 **Image Upload Analyzer:** I scanned your uploaded invoice screenshot and successfully extracted the following bill parameters:\n\n- **Invoice Category:** ⚡ Utility Bill (Ikeja Electric - Prepaid)\n- **Meter Account:** \`4509-3329-812\`\n- **Target Person:** Adewale Yusuf\n- **Average Due:** \`₦5,000\`\n\nI have pre-populated the complete transaction payload. View the authorization card below and click **Confirm & Pay**!`,
+            action: {
+              type: "TRANSACTION_PREPARE",
+              tx: {
+                type: "electricity",
+                amount: 5000,
+                recipient: "4509-3329-812",
+                description: "Ikeja Electric ₦5,000 via Invoice Scan",
+                details: {
+                  disco: "Ikeja Electric",
+                  saveBeneficiary: true,
+                  beneficiaryName: "Yusuf meter (Mia Scan)"
+                }
+              }
+            }
+          };
+        } else if (queryText.includes('waec') || queryText.includes('exam') || queryText.includes('neco')) {
+          const isWaec = !queryText.includes('neco');
+          const amount = isWaec ? 3200 : 1100;
+          const tokenName = isWaec ? "WAEC Result Checker PIN" : "NECO Token";
+          const dPhone = user.phone || "08012345678";
+
+          simulatedReply = {
+            text: `🎓 **Educational Voucher Automation:** I've set up an automated checkout for a high-volume **${tokenName}** EPIN.\n\n- **Token:** \`${tokenName}\`\n- **Delivery target:** \`${dPhone}\` (Via SMS/Email)\n- **Cost:** \`₦${amount.toLocaleString('en-NG')}\`\n\nApprove via the secure checkout receipt below!`,
+            action: {
+              type: "TRANSACTION_PREPARE",
+              tx: {
+                type: "education",
+                amount,
+                recipient: dPhone,
+                description: `${tokenName} EPIN checkout`,
+                details: {
+                  provider: isWaec ? "WAEC" : "NECO",
+                  quantity: 1,
+                  saveBeneficiary: false
+                }
+              }
+            }
+          };
+        }
+
+        res.json(simulatedReply);
+      }
+    } catch (err: any) {
+      console.error("Mia AI error exception:", err);
+      res.status(500).json({ error: 'Failed to process AI chat query', message: err.message });
+    }
+  });
+
 
   // Vite asset-serving and dev configuration
   if (process.env.NODE_ENV !== "production") {

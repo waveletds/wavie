@@ -20,6 +20,7 @@ import { WalletAndBankPanel } from './components/WalletAndBankPanel';
 import { TransactionsList } from './components/TransactionsList';
 import { SettingsConfig } from './components/SettingsConfig';
 import { motion, AnimatePresence } from 'motion/react';
+import { MiaAssistant } from './components/MiaAssistant';
 
 // Mock Initial State builders
 const INITIAL_BENEFICIARIES: SavedBeneficiary[] = [
@@ -546,6 +547,15 @@ export default function App() {
         transaction={activeReceiptTx}
         addToast={addToast}
       />
+
+      {isAuthenticated && (
+        <MiaAssistant
+          user={user}
+          onInterceptPurchase={handleInterceptPurchase}
+          transactions={transactions}
+          addToast={addToast}
+        />
+      )}
 
       {!isAuthenticated ? (
         /* ================= AUTH / LOGIN CARD PORTAL ================= */
