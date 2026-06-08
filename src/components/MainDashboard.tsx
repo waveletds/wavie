@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'motion/react';
 import { 
   Wallet, ArrowDownLeft, ArrowUpRight, ArrowRight, Phone, 
   Lightbulb, Tv, GraduationCap, Copy, Users, ChevronRight, Zap, RefreshCw
@@ -65,10 +66,42 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     { text: lang === 'pidgin' ? 'MTN SME plan drop! ₦235 for full 1GB!' : 'MTN SME Slash: Purchase 1GB SME data bundle at ₦235 flat!', code: 'SMEFLASH', color: 'from-amber-400 to-yellow-500 text-slate-900' }
   ];
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.05
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 15 },
+    show: { 
+      opacity: 1, 
+      y: 0, 
+      transition: { 
+        type: 'spring', 
+        stiffness: 100, 
+        damping: 15 
+      } 
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-6" id="dashboard-tab-view">
+    <motion.div 
+      className="flex flex-col gap-6" 
+      id="dashboard-tab-view"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
       {/* Welcome Message banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <motion.div 
+        variants={itemVariants}
+        className="flex flex-col md:flex-row md:items-center justify-between gap-4"
+      >
         <div>
           <h1 className="text-2xl font-black font-display tracking-tight text-slate-900" id="welcome-text">
             {lang === 'pidgin' ? `Afa, ${user.name || 'Chief'}! ⚡` : `Hi, ${user.name || 'Developer'}!`}
@@ -83,10 +116,10 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
           <span className="font-display">KYC: {user.kycLevel}</span>
         </div>
-      </div>
+      </motion.div>
 
       {/* Wallet Balance Board */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Wallet Display Card */}
         <div className="md:col-span-2 relative overflow-hidden bg-slate-900 text-white rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
           {/* Subtle design circles */}
@@ -112,7 +145,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             <button
               id="dashboard-fund-wallet-btn"
               onClick={() => onNavigate('wallet')}
-              className="flex-grow py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold rounded-xl text-xs font-display flex items-center justify-center gap-2 transition-all shadow active:scale-95"
+              className="flex-grow py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-bold rounded-xl text-xs font-display flex items-center justify-center gap-2 transition-all shadow active:scale-95 cursor-pointer"
             >
               <ArrowDownLeft className="w-4 h-4 text-slate-900 transition-transform" />
               {dict.fund_wallet_btn}
@@ -120,7 +153,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             <button
               id="dashboard-withdraw-btn"
               onClick={() => onNavigate('wallet')}
-              className="flex-grow py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold font-display flex items-center justify-center gap-2 backdrop-blur-md border border-white/15 transition-all active:scale-95"
+              className="flex-grow py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold font-display flex items-center justify-center gap-2 backdrop-blur-md border border-white/15 transition-all active:scale-95 cursor-pointer"
             >
               <ArrowUpRight className="w-4 h-4 text-slate-300" />
               {dict.withdraw_btn}
@@ -152,14 +185,18 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Promotional Scrolling Banners */}
-      <div className="flex gap-4 overflow-x-auto pb-1 no-scrollbar select-none">
+      <motion.div 
+        variants={itemVariants}
+        className="flex gap-4 overflow-x-auto pb-1.5 no-scrollbar select-none"
+      >
         {promos.map((promo, idx) => (
-          <div 
+          <motion.div 
             key={idx} 
-            className={`flex-shrink-0 p-4 rounded-xl bg-gradient-to-r ${promo.color} text-white flex flex-col justify-between border shadow-sm`}
+            whileHover={{ y: -2, scale: 1.01 }}
+            className={`flex-shrink-0 p-4 rounded-xl bg-gradient-to-r ${promo.color} text-white flex flex-col justify-between border shadow-sm cursor-grab active:cursor-grabbing`}
             style={{ width: '280px', height: '110px' }}
           >
             <span className="text-xs font-semibold leading-snug font-display">{promo.text}</span>
@@ -167,15 +204,17 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               <span className="text-[9px] uppercase tracking-widest font-bold opacity-80">PROMO CODE: {promo.code}</span>
               <span className="text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded-full select-none">ACTIVE</span>
             </div>
-          </div>
+          </motion.div>
         ))}
-          {/* Primary Products Grid */}
-      <div className="flex flex-col gap-3">
+      </motion.div>
+
+      {/* Primary Products Grid */}
+      <motion.div variants={itemVariants} className="flex flex-col gap-3">
         <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display" id="services-title">
           {dict.quick_actions_header}
         </h2>
         
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-5 gap-3 sm:gap-4">
           {Object.entries(serviceIcons).map(([key, item]) => {
             const serviceColors: Record<string, { bg: string, text: string, hoverBg: string }> = {
               airtime: { bg: 'bg-blue-50', text: 'text-blue-600', hoverBg: 'group-hover:bg-blue-600 group-hover:text-white' },
@@ -187,29 +226,35 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             const colors = serviceColors[key] || { bg: 'bg-emerald-50', text: 'text-emerald-600', hoverBg: 'group-hover:bg-emerald-600 group-hover:text-white' };
 
             return (
-              <button
+              <motion.button
                 key={key}
                 id={`quick-action-tab-${item.tab}`}
                 onClick={() => onNavigate(item.tab as ActiveTab)}
-                className="bg-white p-4 rounded-2xl border border-slate-200 hover:border-emerald-500 cursor-pointer flex flex-col items-center justify-center gap-2 group transition-all duration-200 active:scale-95 text-center shadow-sm"
+                whileHover={{ 
+                  y: -5, 
+                  scale: 1.02,
+                  boxShadow: '0 12px 20px -8px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04)'
+                }}
+                whileTap={{ scale: 0.95 }}
+                className="bg-white p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 hover:border-emerald-500 cursor-pointer flex flex-col items-center justify-center gap-2 group transition-all duration-200 text-center shadow-sm select-none"
               >
-                <div className={`w-12 h-12 ${colors.bg} ${colors.text} rounded-xl flex items-center justify-center ${colors.hoverBg} transition-all duration-300`}>
+                <div className={`w-11 h-11 sm:w-12 sm:h-12 ${colors.bg} ${colors.text} rounded-xl flex items-center justify-center ${colors.hoverBg} transition-all duration-300`}>
                   {item.icon}
                 </div>
-                <span className="font-display font-bold text-slate-800 text-sm mt-1 transition-colors">
+                <span className="font-display font-bold text-slate-800 text-xs sm:text-sm mt-1 transition-colors group-hover:text-emerald-600">
                   {item.label}
                 </span>
                 <p className="text-[10px] text-slate-400 mt-0.5 font-medium truncate w-full px-1">
                   {item.desc}
                 </p>
-              </button>
+              </motion.button>
             );
           })}
         </div>
-      </div>    </div>
+      </motion.div>
 
       {/* Saved Beneficiaries Slider */}
-      <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100">
+      <motion.div variants={itemVariants} className="bg-slate-50/50 rounded-2xl p-4 border border-slate-105">
         <BeneficiarySelector
           beneficiaries={beneficiaries}
           onSelect={(b) => {
@@ -219,10 +264,10 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           activeType="all"
           label={dict.saved_beneficiaries}
         />
-      </div>
+      </motion.div>
 
       {/* Dual Layout: Recent Transactions + Referral Banner */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Transactions component */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -232,7 +277,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             <button
               id="view-all-tx-btn-dashboard"
               onClick={() => onNavigate('transactions')}
-              className="text-xs font-bold text-emerald-600 hover:text-emerald-800 flex items-center gap-0.5 group"
+              className="text-xs font-bold text-emerald-600 hover:text-emerald-800 flex items-center gap-0.5 group cursor-pointer"
             >
               See Full Web Logs
               <ChevronRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -253,7 +298,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                     key={tx.id}
                     id={`recent-tx-row-${tx.id}`}
                     onClick={() => onOpenReceipt(tx)}
-                    className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100/80 border border-slate-100 hover:border-slate-200 rounded-xl transition-all text-left focus:outline-none"
+                    className="w-full flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100/85 border border-slate-100 hover:border-slate-200 rounded-xl transition-all text-left focus:outline-none cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
                       <div className={`w-9 h-9 rounded-full font-bold text-sm flex items-center justify-center font-display ${style.bg}`}>
@@ -318,7 +363,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               <button
                 id="copy-referral-code-btn"
                 onClick={handleCopyReferral}
-                className="p-1 px-2.5 bg-emerald-500 text-slate-900 rounded-lg text-xs font-bold font-display hover:bg-emerald-450 flex items-center gap-1 transition-colors active:scale-95 whitespace-nowrap"
+                className="p-1 px-2.5 bg-emerald-500 text-slate-900 rounded-lg text-xs font-bold font-display hover:bg-emerald-450 flex items-center gap-1 transition-colors active:scale-95 whitespace-nowrap cursor-pointer"
               >
                 <Copy className="w-3 h-3" />
                 {copiedCode ? 'Copied' : 'Copy'}
@@ -330,7 +375,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             </p>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

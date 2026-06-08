@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { 
   LayoutDashboard, Phone, Database, Lightbulb, Tv, GraduationCap, 
   Wallet, History, Settings, LogOut, ArrowRight, ShieldCheck, Mail, Lock, 
@@ -650,107 +651,114 @@ export default function App() {
 
             {/* MAIN PORTLET TAB RENDERING */}
             <div className="flex-grow">
-              {activeTab === 'dashboard' && (
-                <MainDashboard
-                  user={user}
-                  recentTransactions={transactions}
-                  beneficiaries={beneficiaries}
-                  onNavigate={(tab) => setActiveTab(tab)}
-                  lang={lang}
-                  onOpenReceipt={(tx) => {
-                    setActiveReceiptTx(tx);
-                    setIsReceiptModalOpen(true);
-                  }}
-                  addToast={addToast}
-                />
-              )}
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+              >
+                {activeTab === 'dashboard' && (
+                  <MainDashboard
+                    user={user}
+                    recentTransactions={transactions}
+                    beneficiaries={beneficiaries}
+                    onNavigate={(tab) => setActiveTab(tab)}
+                    lang={lang}
+                    onOpenReceipt={(tx) => {
+                      setActiveReceiptTx(tx);
+                      setIsReceiptModalOpen(true);
+                    }}
+                    addToast={addToast}
+                  />
+                )}
 
-              {activeTab === 'airtime' && (
-                <AirtimeAndDataPanel
-                  user={user}
-                  beneficiaries={beneficiaries}
-                  onTriggerPurchase={handleInterceptPurchase}
-                  addToast={addToast}
-                  initialType="airtime"
-                />
-              )}
+                {activeTab === 'airtime' && (
+                  <AirtimeAndDataPanel
+                    user={user}
+                    beneficiaries={beneficiaries}
+                    onTriggerPurchase={handleInterceptPurchase}
+                    addToast={addToast}
+                    initialType="airtime"
+                  />
+                )}
 
-              {activeTab === 'data' && (
-                <AirtimeAndDataPanel
-                  user={user}
-                  beneficiaries={beneficiaries}
-                  onTriggerPurchase={handleInterceptPurchase}
-                  addToast={addToast}
-                  initialType="data"
-                />
-              )}
+                {activeTab === 'data' && (
+                  <AirtimeAndDataPanel
+                    user={user}
+                    beneficiaries={beneficiaries}
+                    onTriggerPurchase={handleInterceptPurchase}
+                    addToast={addToast}
+                    initialType="data"
+                  />
+                )}
 
-              {activeTab === 'electricity' && (
-                <BillsRechargePanel
-                  user={user}
-                  beneficiaries={beneficiaries}
-                  onTriggerPurchase={handleInterceptPurchase}
-                  addToast={addToast}
-                />
-              )}
+                {activeTab === 'electricity' && (
+                  <BillsRechargePanel
+                    user={user}
+                    beneficiaries={beneficiaries}
+                    onTriggerPurchase={handleInterceptPurchase}
+                    addToast={addToast}
+                  />
+                )}
 
-              {activeTab === 'cable' && (
-                <BillsRechargePanel
-                  user={user}
-                  beneficiaries={beneficiaries}
-                  onTriggerPurchase={handleInterceptPurchase}
-                  addToast={addToast}
-                />
-              )}
+                {activeTab === 'cable' && (
+                  <BillsRechargePanel
+                    user={user}
+                    beneficiaries={beneficiaries}
+                    onTriggerPurchase={handleInterceptPurchase}
+                    addToast={addToast}
+                  />
+                )}
 
-              {activeTab === 'education' && (
-                <EducationPinsPanel
-                  user={user}
-                  onTriggerPurchase={handleInterceptPurchase}
-                  addToast={addToast}
-                />
-              )}
+                {activeTab === 'education' && (
+                  <EducationPinsPanel
+                    user={user}
+                    onTriggerPurchase={handleInterceptPurchase}
+                    addToast={addToast}
+                  />
+                )}
 
-              {activeTab === 'wallet' && (
-                <WalletAndBankPanel
-                  user={user}
-                  onFundWallet={handleWalletFunding}
-                  onWithdrawWallet={(amt, fee, desc, details) => {
-                    handleInterceptPurchase({
-                      type: 'withdrawal',
-                      amount: amt,
-                      recipient: details.accountNumber,
-                      description: desc,
-                      details: {
-                        ...details,
-                        fee
-                      }
-                    });
-                  }}
-                  addToast={addToast}
-                />
-              )}
+                {activeTab === 'wallet' && (
+                  <WalletAndBankPanel
+                    user={user}
+                    onFundWallet={handleWalletFunding}
+                    onWithdrawWallet={(amt, fee, desc, details) => {
+                      handleInterceptPurchase({
+                        type: 'withdrawal',
+                        amount: amt,
+                        recipient: details.accountNumber,
+                        description: desc,
+                        details: {
+                          ...details,
+                          fee
+                        }
+                      });
+                    }}
+                    addToast={addToast}
+                  />
+                )}
 
-              {activeTab === 'transactions' && (
-                <TransactionsList
-                  transactions={transactions}
-                  onOpenReceipt={(tx) => {
-                    setActiveReceiptTx(tx);
-                    setIsReceiptModalOpen(true);
-                  }}
-                  addToast={addToast}
-                />
-              )}
+                {activeTab === 'transactions' && (
+                  <TransactionsList
+                    transactions={transactions}
+                    onOpenReceipt={(tx) => {
+                      setActiveReceiptTx(tx);
+                      setIsReceiptModalOpen(true);
+                    }}
+                    addToast={addToast}
+                  />
+                )}
 
-              {activeTab === 'settings' && (
-                <SettingsConfig
-                  user={user}
-                  onUpdateUser={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
-                  lang={lang}
-                  onChangeLang={(l) => setLang(l)}
-                  addToast={addToast}
-                />
-              )}
+                {activeTab === 'settings' && (
+                  <SettingsConfig
+                    user={user}
+                    onUpdateUser={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
+                    lang={lang}
+                    onChangeLang={(l) => setLang(l)}
+                    addToast={addToast}
+                  />
+                )}
+              </motion.div>
             </div>
 
             {/* MOBILE BOTTOM NAVIGATION BAR BAR */}
