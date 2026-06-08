@@ -80,7 +80,7 @@ async function startServer() {
           email: String(email),
           phone: '08000000000',
           name: 'New User',
-          wallet_balance: 3000.0,
+          wallet_balance: 100.0,
           referral_code: refCode,
           referred_count: 0,
           referral_earnings: 0.0,
@@ -90,6 +90,47 @@ async function startServer() {
         });
         user = await db('users').where({ email: String(email) }).first();
         console.log(`Created new pooled database record for user: ${email}`);
+      }
+
+      res.json({ success: true, user: mapDbUserToClient(user) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // 1b. API: Register Account with specific details
+  app.post('/api/user/register', async (req: Request, res: Response, next: NextFunction) => {
+    const { email, name, phone } = req.body;
+    if (!email || !name || !phone) {
+      return res.status(400).json({ error: 'Email, name, and phone parameters are required for registration' });
+    }
+
+    try {
+      let user = await db('users').where({ email: String(email) }).first();
+      
+      if (!user) {
+        const refCode = `TOPUP-${Math.random().toString(36).substring(2, 6).toUpperCase()}-9G`;
+        await db('users').insert({
+          email: String(email),
+          phone: String(phone),
+          name: String(name),
+          wallet_balance: 100.0, // Welcome bonus matching client setting
+          referral_code: refCode,
+          referred_count: 0,
+          referral_earnings: 0.0,
+          kyc_level: 'Tier 1',
+          transaction_pin: '1111',
+          is_pin_set: 1
+        });
+        user = await db('users').where({ email: String(email) }).first();
+        console.log(`Successfully registered new user in SQLite: ${email}`);
+      } else {
+        // Update details if they already exist from a guest route
+        await db('users').where({ email: String(email) }).update({
+          name: String(name),
+          phone: String(phone)
+        });
+        user = await db('users').where({ email: String(email) }).first();
       }
 
       res.json({ success: true, user: mapDbUserToClient(user) });

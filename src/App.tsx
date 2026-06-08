@@ -205,25 +205,47 @@ export default function App() {
   };
 
   // Auth Submit Handlers
-  const handleAuthSubmit = (e: React.FormEvent) => {
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isRegistering) {
       if (!regName.trim() || !authEmail.trim() || !authPhone.trim() || !authPassword.trim()) {
         addToast('Please complete all registration parameters.', 'error');
         return;
       }
-      setUser((prev) => ({
-        ...prev,
-        name: regName.trim(),
-        email: authEmail.trim(),
-        phone: authPhone,
-        walletBalance: 2000,
-        referredCount: 0,
-        referralEarnings: 0,
-      }));
-      setIsRegistering(false);
-      setIsAuthenticated(true);
-      addToast('Profile account registered! ₦2,000 welcome bonus card active.', 'success');
+      try {
+        const res = await fetch('/api/user/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: authEmail.trim(),
+            name: regName.trim(),
+            phone: authPhone.trim(),
+          }),
+        });
+        const data = await res.json();
+        if (data.success && data.user) {
+          setUser(data.user);
+          setIsRegistering(false);
+          setIsAuthenticated(true);
+          addToast('Profile account registered! ₦100 welcome bonus card active.', 'success');
+        } else {
+          addToast(data.error || 'Server registration failed. Try again.', 'error');
+        }
+      } catch (err) {
+        console.error('Registration failed, acting on client simulation:', err);
+        setUser((prev) => ({
+          ...prev,
+          name: regName.trim(),
+          email: authEmail.trim(),
+          phone: authPhone,
+          walletBalance: 100,
+          referredCount: 0,
+          referralEarnings: 0,
+        }));
+        setIsRegistering(false);
+        setIsAuthenticated(true);
+        addToast('Profile account registered! ₦100 welcome bonus card active.', 'success');
+      }
     } else {
       // Login validation
       if (authMode === 'password') {
@@ -578,21 +600,40 @@ export default function App() {
                 </div>
 
                 {isRegistering && (
-                  <div className="flex flex-col gap-1.5" id="reg-name-field">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">Full Name</label>
-                    <div className="relative">
-                      <input
-                        id="register-name-input"
-                        type="text"
-                        placeholder="e.g. Olawale Joseph"
-                        value={regName}
-                        onChange={(e) => setRegName(e.target.value)}
-                        className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-xs font-semibold focus:border-slate-800 bg-slate-50 focus:bg-white outline-none"
-                        required
-                      />
-                      <User className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                  <>
+                    <div className="flex flex-col gap-1.5" id="reg-name-field">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">Full Name</label>
+                      <div className="relative">
+                        <input
+                          id="register-name-input"
+                          type="text"
+                          placeholder="e.g. Olawale Joseph"
+                          value={regName}
+                          onChange={(e) => setRegName(e.target.value)}
+                          className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-xs font-semibold focus:border-slate-800 bg-slate-50 focus:bg-white outline-none"
+                          required
+                        />
+                        <User className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                      </div>
                     </div>
-                  </div>
+
+                    <div className="flex flex-col gap-1.5" id="reg-phone-field">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">Mobile Phone Line</label>
+                      <div className="relative">
+                        <input
+                          id="register-phone-input"
+                          type="text"
+                          placeholder="e.g. 08034567890"
+                          value={authPhone}
+                          onChange={(e) => setAuthPhone(e.target.value.replace(/[^0-9]/g, ''))}
+                          className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-xs font-semibold tracking-widest font-mono bg-slate-50 focus:bg-white outline-none"
+                          maxLength={11}
+                          required
+                        />
+                        <Phone className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                      </div>
+                    </div>
+                  </>
                 )}
 
                 <div className="flex flex-col gap-1.5">
