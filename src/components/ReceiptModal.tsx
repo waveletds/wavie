@@ -185,7 +185,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, tra
             </div>
             
             <h2 className="text-2xl font-black font-display tracking-tight text-slate-900">
-              TopUpNaija
+              Wavie
             </h2>
             <p className="text-xs text-slate-400 font-medium">Virtual Top-Up & Bills Payment</p>
 
@@ -247,7 +247,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, tra
               🔒 POWERED BY AUTOMATED GATEWAYS
             </span>
             <p className="text-[10px] text-slate-400 max-w-xs mx-auto mt-1 leading-normal">
-              This receipt verifies the transaction has been dispatched instantly to the service gateway system. For enquiries, contact hello@topupnaija.ng
+              This receipt verifies the transaction has been dispatched instantly to the service gateway system. For enquiries, contact hello@wavie.ng
             </p>
           </div>
         </div>

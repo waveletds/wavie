@@ -293,12 +293,12 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase block font-display">DESIGNATED BANKEE:</span>
-                      <span className="text-sm font-bold font-display text-white">Wema Bank (TopUpNaija)</span>
+                      <span className="text-sm font-bold font-display text-white">Wema Bank (Wavie)</span>
                     </div>
 
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase block font-display">ACCOUNT TITLE / NAME:</span>
-                      <span className="text-sm font-bold font-display text-white uppercase">{user.name || 'TOPUPNAIJA DEVELOPER'}</span>
+                      <span className="text-sm font-bold font-display text-white uppercase">{user.name || 'WAVIE DEVELOPER'}</span>
                     </div>
 
                     <div className="md:col-span-2 border-t border-white/5 pt-3 mt-1 flex justify-between items-center bg-white/5 p-3 rounded-xl backdrop-blur-sm">

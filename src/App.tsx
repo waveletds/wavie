@@ -404,7 +404,7 @@ export default function App() {
               <div className="absolute left-0 bottom-0 w-20 h-20 bg-emerald-500/10 rounded-full blur-lg" />
               
               <h2 className="text-3xl font-black font-display tracking-tight text-white flex items-center justify-center gap-1">
-                TopUpNaija <span className="text-amber-400 animate-pulse">⚡</span>
+                Wavie <span className="text-amber-400 animate-pulse">⚡</span>
               </h2>
               <p className="text-xs text-indigo-200 mt-1 font-medium font-display tracking-wide uppercase">
                 Nigeria&apos;s Smartest Billing Wallet
@@ -479,7 +479,7 @@ export default function App() {
                       <input
                         id="login-email-input"
                         type="email"
-                        placeholder="customer@topupnaija.ng"
+                        placeholder="customer@wavie.ng"
                         value={authEmail}
                         onChange={(e) => setAuthEmail(e.target.value)}
                         className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-xs font-semibold bg-slate-50 focus:bg-white outline-none"
@@ -557,7 +557,7 @@ export default function App() {
                 >
                   {isRegistering 
                     ? 'Already have an account? Login here' 
-                    : "New to TopUpNaija? Secure an account here"}
+                    : "New to Wavie? Secure an account here"}
                 </button>
 
                 <div className="border-t border-slate-100 pt-4 mt-1.5 flex flex-col gap-2">
@@ -588,7 +588,7 @@ export default function App() {
                   <div className="w-4 h-4 bg-white rounded-full"></div>
                 </div>
                 <span className="text-xl font-bold font-display tracking-tight text-slate-900">
-                  TopUpNaija
+                  Wavie
                 </span>
               </div>
 
@@ -632,7 +632,7 @@ export default function App() {
             {/* MOBILE QUICK TOP BAR */}
             <header className="md:hidden flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
               <span className="text-base font-black font-display text-slate-900 tracking-tight flex items-center gap-0.5 select-none">
-                TopUpNaija <span className="text-amber-500 animate-pulse text-sm">⚡</span>
+                Wavie <span className="text-amber-500 animate-pulse text-sm">⚡</span>
               </span>
 
               <button

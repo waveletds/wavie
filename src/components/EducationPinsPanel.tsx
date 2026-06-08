@@ -251,7 +251,7 @@ export const EducationPinsPanel: React.FC<EducationPinsPanelProps> = ({
                 Official API Reseller Guarantee
               </h4>
               <p className="text-[11px] text-emerald-200 leading-relaxed font-semibold">
-                TopUpNaija has direct aggregation interfaces with WAEC, NECO, and JAMB registration partner bodies. Vouchers issued are 100% genuine and instantly active on national check portals.
+                Wavie has direct aggregation interfaces with WAEC, NECO, and JAMB registration partner bodies. Vouchers issued are 100% genuine and instantly active on national check portals.
               </p>
             </div>
 
