@@ -798,18 +798,31 @@ export default function App() {
   const handleWalletFunding = (amount: number, description: string, paymentMethod?: string, reference?: string) => {
     const generatedRef = reference || `TN-DEP-${Math.floor(10000000 + Math.random() * 89999999)}`;
 
-    fetch('/api/wallet/fund', {
+    const isPaystack = paymentMethod === 'paystack';
+    const endpoint = isPaystack ? '/api/paystack/verify' : '/api/wallet/fund';
+    const requestBody = isPaystack 
+      ? { reference: generatedRef, email: user.email, amount }
+      : {
+          email: user.email,
+          amount,
+          paymentMethod: paymentMethod || 'bank_transfer_sim',
+          reference: generatedRef,
+          description
+        };
+
+    addToast(isPaystack ? 'Verifying payment with secure backend switch...' : 'Processing funding...', 'info');
+
+    fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: user.email,
-        amount,
-        paymentMethod: paymentMethod || 'bank_transfer_sim',
-        reference: generatedRef,
-        description
-      })
+      body: JSON.stringify(requestBody)
     })
-    .then(res => res.json())
+    .then(res => {
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      return res.json();
+    })
     .then(data => {
       if (data.success && data.user) {
         setUser(data.user);
@@ -821,6 +834,8 @@ export default function App() {
           });
         }
         addToast(`Successfully funded wallet with ₦${amount.toLocaleString()}`, 'success');
+      } else {
+        throw new Error(data.error || 'Server rejected payment request');
       }
     })
     .catch(err => {

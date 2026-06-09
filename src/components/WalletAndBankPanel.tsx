@@ -159,10 +159,10 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
       console.warn("Paystack Inline JS failed to load, falling back to embedded checkout.");
     }
 
-    const pKey = (import.meta as any).env.VITE_PAYSTACK_PUBLIC_KEY;
+    const pKey = (import.meta as any).env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_c962bda7bcde1bbf9fd6f801646271a067e2da5b';
 
-    // If script loaded successfully AND a custom live/valid API key is provided, try real checkout
-    if (scriptLoaded && pKey && pKey.startsWith('pk_')) {
+    // If script loaded successfully, try real checkout
+    if (scriptLoaded && pKey) {
       try {
         const handler = (window as any).PaystackPop.setup({
           key: pKey,
@@ -178,7 +178,6 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
               'paystack', 
               response.reference
             );
-            addToast(`Success! ₦${amt.toLocaleString()} securely credited via Paystack.`, 'success');
           },
           onClose: () => {
             setIsProcessingCard(false);
@@ -186,7 +185,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
           }
         });
         handler.openIframe();
-        return; // Sucessfully triggered real Paystack checkout flow
+        return; // Successfully triggered real Paystack checkout flow
       } catch (err: any) {
         console.warn('Real Paystack setup initialization failed or blocked in this window context/iframe. Using fallback.', err);
       }
