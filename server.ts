@@ -142,6 +142,67 @@ async function startServer() {
     }
   });
 
+  // 1c. API: Verify user existence by email or phone
+  app.post('/api/auth/lookup', async (req: Request, res: Response, next: NextFunction) => {
+    const { identifier } = req.body;
+    if (!identifier) {
+      return res.status(400).json({ error: 'Email or phone identifier required' });
+    }
+
+    try {
+      const cleanId = String(identifier).trim();
+      const user = await db('users')
+        .where('email', cleanId)
+        .orWhere('phone', cleanId)
+        .first();
+
+      if (user) {
+        return res.json({ 
+          success: true, 
+          exists: true, 
+          user: { 
+            email: user.email, 
+            phone: user.phone, 
+            name: user.name,
+            isPinSet: user.is_pin_set === 1
+          } 
+        });
+      } else {
+        return res.json({ success: true, exists: false });
+      }
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // 1d. API: Validate login with 4-digit security PIN
+  app.post('/api/auth/verify-pin', async (req: Request, res: Response, next: NextFunction) => {
+    const { identifier, pin } = req.body;
+    if (!identifier || !pin) {
+      return res.status(400).json({ error: 'Identifier and security PIN parameters required' });
+    }
+
+    try {
+      const cleanId = String(identifier).trim();
+      const user = await db('users')
+        .where('email', cleanId)
+        .orWhere('phone', cleanId)
+        .first();
+
+      if (!user) {
+        return res.status(404).json({ error: 'User account not found' });
+      }
+
+      if (String(user.transaction_pin) === String(pin).trim()) {
+        return res.json({ success: true, user: mapDbUserToClient(user) });
+      } else {
+        return res.status(400).json({ error: 'Incorrect 4-digit PIN protection. Please try again.' });
+      }
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // 2. API: Update User details
   app.post('/api/user/update', async (req: Request, res: Response, next: NextFunction) => {
     const { 

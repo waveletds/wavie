@@ -1,12 +1,33 @@
 import React, { useState } from 'react';
 import {   Wallet, ArrowDownLeft, ArrowUpRight, ArrowRight, Phone, 
   Lightbulb, Tv, GraduationCap, Copy, Users, ChevronRight, Zap, RefreshCw,
-  Sunrise, Sun, Moon
+  Sunrise, Sun, Moon, TrendingUp
 } from 'lucide-react';
 import { UserState, Transaction, SavedBeneficiary, ActiveTab, Language } from '../types';
 import { PIDGIN_DICT, ENGLISH_DICT } from '../data';
 import { BeneficiarySelector } from './BeneficiarySelector';
 import { motion } from 'motion/react';
+import { AreaChart, Area, Tooltip as RechartsTooltip, ResponsiveContainer, XAxis } from 'recharts';
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: any;
+  label?: string;
+}
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-slate-950/95 border border-slate-850 px-3 py-1.5 rounded-xl shadow-2xl text-white backdrop-blur-md">
+        <p className="font-semibold text-slate-400 text-[9px] leading-tight uppercase tracking-widest mb-1">{label}</p>
+        <p className="font-mono text-[11px] text-emerald-400 font-extrabold leading-none">
+          ₦{Number(payload[0].value).toLocaleString()}
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
 
 interface MainDashboardProps {
   user: UserState;
@@ -89,6 +110,44 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     { text: lang === 'pidgin' ? 'MTN SME plan drop! ₦235 for full 1GB!' : 'MTN SME Slash: Purchase 1GB SME data bundle at ₦235 flat!', code: 'SMEFLASH', color: 'from-amber-400 to-yellow-500 text-slate-900' }
   ];
 
+  // Calculate actual dynamic spending over the last 7 days
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return d;
+  });
+
+  const actualDailySpending = last7Days.map((date) => {
+    const dateStr = date.toDateString();
+    const formattedLabel = date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
+    
+    // Sum successful spending operations (exclude funding, referral_bonus, cashback)
+    const dailySpendSum = recentTransactions
+      .filter((tx) => {
+        const txDate = new Date(tx.timestamp);
+        const isSameDay = txDate.toDateString() === dateStr;
+        const isSpending = !['funding', 'referral_bonus', 'cashback'].includes(tx.type);
+        return isSameDay && isSpending && tx.status === 'success';
+      })
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    return {
+      day: formattedLabel,
+      amount: dailySpendSum,
+      dateString: dateStr,
+    };
+  });
+
+  const total7DaySpend = actualDailySpending.reduce((sum, item) => sum + item.amount, 0);
+
+  // Fallback pattern to show beautiful illustrative wave line if total is exactly zero
+  const mockBaseline = [450, 1100, 320, 1500, 240, 850, 190];
+  const spendingChartData = actualDailySpending.map((item, idx) => ({
+    name: item.day,
+    amount: total7DaySpend > 0 ? item.amount : mockBaseline[idx],
+    isReal: total7DaySpend > 0
+  }));
+
   return (
     <div 
       className="flex flex-col gap-6" 
@@ -112,15 +171,16 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         </div>
       </motion.div>
 
-      {/* Wallet Balance Board */}
+      {/* Wallet Balance Board & 7-Day Spending Sparkline Grid */}
       <motion.div 
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.05, ease: 'easeOut' }}
-        className="w-full"
+        className="grid grid-cols-1 lg:grid-cols-3 gap-6 w-full"
+        id="wallet-and-chart-board"
       >
         {/* Wallet Display Card */}
-        <div className="relative overflow-hidden bg-slate-900 text-white rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
+        <div className="lg:col-span-2 relative overflow-hidden bg-slate-900 text-white rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
           {/* Subtle design circles */}
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-600/10 rounded-full blur-2xl group-hover:bg-emerald-600/20 transition-all duration-300" />
           <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-emerald-600/5 rounded-full blur-xl" />
@@ -162,6 +222,72 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               <ArrowUpRight className="w-4 h-4 text-slate-300 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
               Transfer
             </motion.button>
+          </div>
+        </div>
+
+        {/* Mini Sparkline Chart Card - Spending Trends */}
+        <div className="bg-slate-900 border border-slate-800 text-white rounded-2xl p-6 shadow-xl flex flex-col justify-between relative overflow-hidden group">
+          {/* Neon decorative trace */}
+          <div className="absolute -left-12 -top-12 w-28 h-28 bg-emerald-500/10 rounded-full blur-xl group-hover:scale-110 transition-transform duration-500" />
+          
+          <div className="flex flex-col gap-1 z-10">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="text-xs font-display font-medium uppercase tracking-widest">
+                7-Day Spending
+              </span>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black font-display tracking-wider animate-pulse-slow">
+                <TrendingUp className="w-3 h-3 text-emerald-400" />
+                <span>SPARKLINE</span>
+              </div>
+            </div>
+            
+            <div className="flex items-baseline gap-1.5 mt-2">
+              <span className="text-2xl font-black font-display text-white">
+                ₦{total7DaySpend.toLocaleString()}
+              </span>
+              <span className="text-[10px] font-medium text-slate-400 font-sans">
+                {total7DaySpend > 0 ? 'Total utilities paid' : 'Demo trend wave'}
+              </span>
+            </div>
+          </div>
+
+          {/* Sparkline chart container */}
+          <div className="relative w-full h-24 mt-4 z-10 shrink-0 select-none" id="dashboard-spending-sparkline">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={spendingChartData}
+                margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+              >
+                <defs>
+                  <linearGradient id="spendGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="name" hide />
+                <RechartsTooltip
+                  content={<CustomTooltip />}
+                  cursor={{ stroke: '#334155', strokeWidth: 1.5, strokeDasharray: '4 4' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="amount"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#spendGrad)"
+                  activeDot={{ r: 5, stroke: '#0f172a', strokeWidth: 2 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 border-t border-slate-800/80 pt-2.5 mt-2 z-10 shrink-0">
+            <span>{spendingChartData[0]?.name || 'Day 1'}</span>
+            <span className="bg-slate-800/60 px-2 py-0.5 rounded text-[9px] text-slate-300 font-bold uppercase tracking-wider">
+              {total7DaySpend > 0 ? 'Real Sync Active' : 'Sandbox Pattern'}
+            </span>
+            <span>{spendingChartData[spendingChartData.length - 1]?.name || 'Day 7'}</span>
           </div>
         </div>
       </motion.div>

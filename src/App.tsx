@@ -83,6 +83,13 @@ export default function App() {
   const [isRegistering, setIsRegistering] = useState<boolean>(false);
   const [regName, setRegName] = useState<string>('');
 
+  // New secure 4-digit login flow states
+  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
+  const [loginInput, setLoginInput] = useState<string>('');
+  const [loginStep, setLoginStep] = useState<'identifier' | 'pin'>('identifier');
+  const [loginPin, setLoginPin] = useState<string>('');
+  const [isVerifyingLogin, setIsVerifyingLogin] = useState<boolean>(false);
+
   // Primary operational state managers (persisted in dev sandbox)
   const [user, setUser] = useState<UserState>(() => {
     const saved = localStorage.getItem('topup_user');
@@ -201,11 +208,114 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  // Step 1: Identifier lookup
+  const handleContinueLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginInput.trim()) {
+      addToast('Please enter your email or phone line to continue.', 'warning');
+      return;
+    }
+    
+    setIsVerifyingLogin(true);
+    try {
+      const response = await fetch('/api/auth/lookup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ identifier: loginInput.trim() }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        if (data.exists) {
+          setLoginStep('pin');
+          setLoginPin('');
+          addToast(`Account found! Enter your secure 4-digit PIN.`, 'success');
+        } else {
+          addToast('Account not found. Switch to Registration below to create a new wallet!', 'warning');
+          setIsRegistering(true);
+          if (loginInput.includes('@')) {
+            setAuthEmail(loginInput.trim());
+          } else {
+            setAuthPhone(loginInput.trim());
+          }
+        }
+      } else {
+        addToast(data.error || 'Verification error.', 'error');
+      }
+    } catch (err) {
+      console.error('Lookup failed:', err);
+      // Fallback local lookup
+      const isEmailMatch = loginInput.trim().toLowerCase() === user.email.toLowerCase();
+      const isPhoneMatch = loginInput.trim() === user.phone;
+      if (isEmailMatch || isPhoneMatch) {
+        setLoginStep('pin');
+        setLoginPin('');
+        addToast('Verified sandbox profile! Please enter your 4-digit PIN.', 'success');
+      } else {
+        addToast('Account offline lookup not found. You can Register to activate a new profile!', 'warning');
+        setIsRegistering(true);
+        if (loginInput.includes('@')) {
+          setAuthEmail(loginInput);
+        } else {
+          setAuthPhone(loginInput);
+        }
+      }
+    } finally {
+      setIsVerifyingLogin(false);
+    }
+  };
+
+  // Step 2: Validate 4-digit login pin
+  const handleVerifyPin = async (proposedPin: string) => {
+    if (proposedPin.length !== 4) return;
+    
+    setIsVerifyingLogin(true);
+    try {
+      const response = await fetch('/api/auth/verify-pin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          identifier: loginInput.trim(),
+          pin: proposedPin
+        }),
+      });
+      const data = await response.json();
+      if (data.success && data.user) {
+        setUser(data.user);
+        setIsAuthenticated(true);
+        addToast(`Successfully authenticated as ${data.user.name || 'User'}!`, 'success');
+        setLoginPin('');
+        setLoginStep('identifier');
+        setLoginInput('');
+      } else {
+        addToast(data.error || 'Incorrect security PIN. Access denied.', 'error');
+        setLoginPin('');
+      }
+    } catch (err) {
+      console.error('PIN verification API error:', err);
+      if (proposedPin === user.transactionPin) {
+        setIsAuthenticated(true);
+        addToast(`Welcome back, ${user.name}! (Offline authenticated)`, 'success');
+        setLoginPin('');
+        setLoginStep('identifier');
+        setLoginInput('');
+      } else {
+        addToast('Incorrect security PIN. Access denied.', 'error');
+        setLoginPin('');
+      }
+    } finally {
+      setIsVerifyingLogin(false);
+    }
+  };
+
   // Auth Submit Handlers
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isRegistering) {
-      if (!regName.trim() || !authEmail.trim() || !authPhone.trim() || !authPassword.trim()) {
+      if (!regName.trim() || !authEmail.trim() || !authPhone.trim()) {
         addToast('Please complete all registration parameters.', 'error');
         return;
       }
@@ -242,27 +352,6 @@ export default function App() {
         setIsRegistering(false);
         setIsAuthenticated(true);
         addToast('Profile account registered! ₦100 welcome bonus card active.', 'success');
-      }
-    } else {
-      // Login validation
-      if (authMode === 'password') {
-        if (!authEmail.trim() || !authPassword.trim()) {
-          addToast('Please input email and password variables.', 'error');
-          return;
-        }
-        setUser((prev) => ({
-          ...prev,
-          email: authEmail.trim(),
-        }));
-        setIsAuthenticated(true);
-        addToast(`Signed in as ${user.name || authEmail}`, 'success');
-      } else {
-        if (!authPhone.trim() || !authOtp.trim()) {
-          addToast('Please fill SMS OTP details.', 'error');
-          return;
-        }
-        setIsAuthenticated(true);
-        addToast(`Verified OTP for ${user.phone}. Signed in successfully!`, 'success');
       }
     }
   };
@@ -566,166 +655,225 @@ export default function App() {
 
             {/* Auth forms */}
             <div className="p-8">
-              <form onSubmit={handleAuthSubmit} className="flex flex-col gap-5">
-                <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display">
-                    {isRegistering ? 'Register account' : 'Access Gateway Secure'}
-                  </span>
-                  
-                  {!isRegistering && (
-                    <div className="flex gap-1.5 bg-slate-100 p-0.5 rounded-lg text-[10px] font-bold">
-                      <button
-                        id="auth-mode-pass"
-                        type="button"
-                        onClick={() => setAuthMode('password')}
-                        className={`px-2 py-1 rounded transition-all ${authMode === 'password' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'}`}
-                      >
-                        Password
-                      </button>
-                      <button
-                        id="auth-mode-otp"
-                        type="button"
-                        onClick={() => setAuthMode('otp')}
-                        className={`px-2 py-1 rounded transition-all ${authMode === 'otp' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-400'}`}
-                      >
-                        OTP Code
-                      </button>
-                    </div>
-                  )}
-                </div>
+              {isRegistering ? (
+                /* ============= REGISTER SCREEN ============= */
+                <form onSubmit={handleAuthSubmit} className="flex flex-col gap-5">
+                  <div className="flex items-center justify-between border-b border-slate-50 pb-2">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display">
+                      Register account
+                    </span>
+                  </div>
 
-                {isRegistering && (
-                  <>
-                    <div className="flex flex-col gap-1.5" id="reg-name-field">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">Full Name</label>
-                      <div className="relative">
-                        <input
-                          id="register-name-input"
-                          type="text"
-                          placeholder="e.g. Olawale Joseph"
-                          value={regName}
-                          onChange={(e) => setRegName(e.target.value)}
-                          className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-xs font-semibold focus:border-slate-800 bg-slate-50 focus:bg-white outline-none"
-                          required
-                        />
-                        <User className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-1.5" id="reg-phone-field">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">Mobile Phone Line</label>
-                      <div className="relative">
-                        <input
-                          id="register-phone-input"
-                          type="text"
-                          placeholder="e.g. 08034567890"
-                          value={authPhone}
-                          onChange={(e) => setAuthPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                          className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-xs font-semibold tracking-widest font-mono bg-slate-50 focus:bg-white outline-none"
-                          maxLength={11}
-                          required
-                        />
-                        <Phone className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">
-                    {authMode === 'otp' && !isRegistering ? 'Mobile Phone Line' : 'Email Address'}
-                  </label>
-                  <div className="relative">
-                    {authMode === 'otp' && !isRegistering ? (
+                  <div className="flex flex-col gap-1.5" id="reg-name-field">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">Full Name</label>
+                    <div className="relative">
                       <input
-                        id="login-phone-input"
+                        id="register-name-input"
                         type="text"
-                        placeholder="0803 456 7890"
+                        placeholder="e.g. Olawale Joseph"
+                        value={regName}
+                        onChange={(e) => setRegName(e.target.value)}
+                        className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-xs font-semibold focus:border-slate-800 bg-slate-50 focus:bg-white outline-none"
+                        required
+                      />
+                      <User className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5" id="reg-email-field">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">Email Address</label>
+                    <div className="relative">
+                      <input
+                        id="register-email-input"
+                        type="email"
+                        placeholder="customer@wavie.ng"
+                        value={authEmail}
+                        onChange={(e) => setAuthEmail(e.target.value)}
+                        className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-xs font-semibold focus:border-slate-800 bg-slate-50 focus:bg-white outline-none"
+                        required
+                      />
+                      <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5" id="reg-phone-field">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">Mobile Phone Line</label>
+                    <div className="relative">
+                      <input
+                        id="register-phone-input"
+                        type="text"
+                        placeholder="e.g. 08034567890"
                         value={authPhone}
                         onChange={(e) => setAuthPhone(e.target.value.replace(/[^0-9]/g, ''))}
                         className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-xs font-semibold tracking-widest font-mono bg-slate-50 focus:bg-white outline-none"
                         maxLength={11}
                         required
                       />
-                    ) : (
-                      <input
-                        id="login-email-input"
-                        type="email"
-                        placeholder="customer@wavie.ng"
-                        value={authEmail}
-                        onChange={(e) => setAuthEmail(e.target.value)}
-                        className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-xs font-semibold bg-slate-50 focus:bg-white outline-none"
-                        required
-                      />
-                    )}
-                    <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-                  </div>
-                </div>
-
-                {authMode === 'password' || isRegistering ? (
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">Secret Password</label>
-                    <div className="relative">
-                      <input
-                        id="login-password-input"
-                        type="password"
-                        placeholder="••••••••••••"
-                        value={authPassword}
-                        onChange={(e) => setAuthPassword(e.target.value)}
-                        className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-xs font-semibold bg-slate-50 focus:bg-white outline-none"
-                        required
-                      />
-                      <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                      <Phone className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
                     </div>
                   </div>
-                ) : (
-                  <div className="flex flex-col gap-1.5 animate-fade-in" id="otp-input-field">
-                    <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-dotted border-slate-200">
-                      <span className="text-[10px] font-bold text-indigo-700 font-display">🌟 OTP Sent to lines (Simulated)</span>
+
+                  <div className="text-[11px] text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-dashed border-slate-150 leading-relaxed">
+                    🌟 <strong>Default PIN Access Code:</strong> After registering your account, your secure login PIN will default to <strong>1111</strong>. You can change this anytime in Profile settings.
+                  </div>
+
+                  <button
+                    id="auth-submit-btn"
+                    type="submit"
+                    className="w-full py-3.5 mt-2 text-white bg-slate-900 border border-slate-950 hover:bg-black rounded-xl font-bold font-display text-sm hover:shadow-md transition-all active:scale-95"
+                  >
+                    Complete Registration & Login
+                  </button>
+                </form>
+              ) : loginStep === 'identifier' ? (
+                /* ============= LOGIN SCREEN: IDENTIFIER SELECTION (Step 1) ============= */
+                <form onSubmit={handleContinueLogin} className="flex flex-col gap-5">
+                  <div className="flex flex-col gap-3">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest font-display">
+                      How would you like to sign in?
+                    </label>
+
+                    {/* Sliding selector tabs */}
+                    <div className="grid grid-cols-2 bg-slate-100 p-1 rounded-xl text-xs font-bold font-display uppercase tracking-wider relative">
                       <button
-                        id="autofill-otp-btn"
                         type="button"
                         onClick={() => {
-                          setAuthOtp('7749');
-                          addToast('Autofilled active testing OTP code: 7749', 'success');
+                          setLoginMethod('email');
+                          setLoginInput('');
                         }}
-                        className="text-[9px] font-extrabold text-indigo-705 px-1.5 py-0.5 bg-indigo-50 border border-indigo-150 rounded"
+                        className={`py-2 rounded-lg transition-all ${
+                          loginMethod === 'email'
+                            ? 'bg-white text-slate-900 shadow-sm font-black'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
                       >
-                        Auto-Fill Code "7749"
+                        Email Address
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLoginMethod('phone');
+                          setLoginInput('');
+                        }}
+                        className={`py-2 rounded-lg transition-all ${
+                          loginMethod === 'phone'
+                            ? 'bg-white text-slate-900 shadow-sm font-black'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        Phone Number
                       </button>
                     </div>
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">4-Digit SMS PIN Code</label>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">
+                      {loginMethod === 'email' ? 'Registered Email Address' : 'Registered Phone Number'}
+                    </label>
                     <div className="relative">
                       <input
-                        id="login-otp-input"
-                        type="password"
-                        placeholder="••••"
-                        value={authOtp}
-                        onChange={(e) => setAuthOtp(e.target.value.replace(/[^0-9]/g, ''))}
-                        maxLength={4}
-                        className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-sm font-mono tracking-widest font-black text-center bg-slate-50 focus:bg-white outline-none"
+                        id="login-identifier-input"
+                        type={loginMethod === 'email' ? 'email' : 'text'}
+                        placeholder={loginMethod === 'email' ? 'customer@wavie.ng' : 'e.g. 08034567890'}
+                        value={loginInput}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setLoginInput(loginMethod === 'phone' ? val.replace(/[^0-9]/g, '') : val);
+                        }}
+                        maxLength={loginMethod === 'phone' ? 11 : undefined}
+                        className="w-full p-3.5 pl-11 border border-slate-205 rounded-xl text-xs font-semibold focus:border-slate-800 bg-slate-50 focus:bg-white outline-none"
                         required
                       />
-                      <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                      <div className="absolute left-3.5 top-3.5 text-slate-400">
+                        {loginMethod === 'email' ? <Mail className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
+                      </div>
                     </div>
                   </div>
-                )}
 
-                <button
-                  id="auth-submit-btn"
-                  type="submit"
-                  className="w-full py-3.5 mt-2 text-white bg-slate-900 border border-slate-950 hover:bg-black rounded-xl font-bold font-display text-sm hover:shadow-md transition-all active:scale-95"
-                >
-                  {isRegistering ? 'Complete Registration & Login' : 'Secure Sign In'}
-                </button>
-              </form>
+                  <button
+                    id="continue-login-btn"
+                    type="submit"
+                    disabled={isVerifyingLogin}
+                    className="w-full py-3.5 mt-2 text-white bg-slate-900 border border-slate-950 hover:bg-black rounded-xl font-bold font-display text-sm hover:shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <span>Continue to PIN Verification</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </form>
+              ) : (
+                /* ============= LOGIN SCREEN: PIN ENTRY (Step 2) ============= */
+                <div className="flex flex-col gap-5 text-center">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center border border-slate-150 shadow-sm">
+                      <KeyRound className="w-5 h-5 text-indigo-600 animate-pulse" />
+                    </div>
+                    <div className="mt-1">
+                      <h3 className="font-display font-black text-slate-800 text-sm tracking-wide uppercase">
+                        Access Key Required
+                      </h3>
+                      <p className="text-[11px] text-slate-400 font-medium">
+                        Enter your secure 4-digit PIN for:
+                      </p>
+                      <code className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-block mt-1">
+                        {loginInput}
+                      </code>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 relative">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display block">
+                      Wallet Security PIN
+                    </label>
+                    <div className="relative max-w-[200px] mx-auto">
+                      <input
+                        id="login-pin-input"
+                        type="password"
+                        placeholder="••••"
+                        value={loginPin}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '').substring(0, 4);
+                          setLoginPin(val);
+                          if (val.length === 4) {
+                            handleVerifyPin(val);
+                          }
+                        }}
+                        maxLength={4}
+                        autoFocus
+                        className="w-full p-3 border border-slate-300 rounded-xl text-lg font-mono tracking-widest font-black text-center bg-slate-50 focus:bg-white outline-none text-slate-900"
+                        required
+                      />
+                      <div className="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                    </div>
+                    
+                    <div className="p-2 text-[10px] text-slate-400 font-sans leading-relaxed">
+                      💡 <strong>Demo Guidance:</strong> Default seed account PIN protection is <code>1111</code>. Typing 4 digits checks auth immediately.
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
+                    <p className="text-[11px] text-slate-400 font-medium">Not your account credential line?</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginStep('identifier');
+                        setLoginPin('');
+                      }}
+                      className="text-xs font-bold text-indigo-650 hover:underline uppercase tracking-wider"
+                    >
+                      ← Back to Change Account
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Toggle registering */}
-              <div className="mt-5 text-center flex flex-col gap-2.5">
+              <div className="mt-6 text-center flex flex-col gap-2.5 border-t border-slate-50 pt-4">
                 <button
                   id="toggle-register-btn"
                   onClick={() => setIsRegistering(!isRegistering)}
-                  className="text-xs text-indigo-650 hover:text-indigo-850 font-bold"
+                  className="text-xs text-indigo-650 hover:text-indigo-850 font-bold font-display uppercase tracking-wide"
                 >
                   {isRegistering 
                     ? 'Already have an account? Login here' 
