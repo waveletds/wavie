@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { 
   Building2, CreditCard, ArrowDownLeft, ArrowUpRight, Copy, Check, 
-  HelpCircle, ShieldCheck, AlertCircle, RefreshCw, UserCheck, Smartphone, Loader2
+  HelpCircle, ShieldCheck, AlertCircle, RefreshCw, UserCheck, Smartphone, Loader2, Lock, ShieldAlert
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { UserState } from '../types';
 import { MOCK_NAMES } from '../data';
 
 interface WalletAndBankPanelProps {
   user: UserState;
-  onFundWallet: (amount: number, description: string) => void;
+  onFundWallet: (amount: number, description: string, paymentMethod?: string, reference?: string) => void;
   onWithdrawWallet: (amount: number, fee: number, description: string, details: any) => void;
   addToast: (msg: string, type: 'success' | 'error' | 'info' | 'warning') => void;
 }
@@ -32,6 +33,12 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
   const [cardCVV, setCardCVV] = useState<string>('');
   const [cardValue, setCardValue] = useState<string>('1500');
   const [isProcessingCard, setIsProcessingCard] = useState<boolean>(false);
+
+  // Instant Paystack checkout modal sandbox states
+  const [isPaystackOpen, setIsPaystackOpen] = useState<boolean>(false);
+  const [paystackStep, setPaystackStep] = useState<'processing' | 'otp' | 'success'>('processing');
+  const [paystackOtp, setPaystackOtp] = useState<string>('');
+  const [paystackTxRef, setPaystackTxRef] = useState<string>('');
 
   // USSD code triggers
   const bankUSSDs = [
@@ -76,7 +83,13 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
 
     setTimeout(() => {
       setIsSimulatingTransfer(false);
-      onFundWallet(amt, `Funded +₦${amt.toLocaleString()} via dynamic bank transfer`);
+      const generatedRef = `TN-DEP-${Math.floor(10000000 + Math.random() * 89999999)}`;
+      onFundWallet(
+        amt, 
+        `Funded +₦${amt.toLocaleString()} via Instant Bank Transfer`, 
+        'bank_transfer_sim', 
+        generatedRef
+      );
       addToast(`Simulated credit of ₦${amt.toLocaleString()} received instantly!`, 'success');
     }, 1800);
   };
@@ -96,16 +109,52 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
     }
 
     setIsProcessingCard(true);
-    addToast('Authenticating card payment gate (Paystack/Flutterwave Simulator)...', 'info');
+    addToast('Contacting Paystack gateway secure APIs...', 'info');
 
     setTimeout(() => {
       setIsProcessingCard(false);
-      onFundWallet(amt, `Card funded +₦${amt.toLocaleString()} (Gate: 3DS Secure)`);
-      addToast(`Payment successful. ₦${amt.toLocaleString()} loaded to wallet value!`, 'success');
-      setCardNo('');
-      setCardExpiry('');
-      setCardCVV('');
-    }, 2000);
+      // Initialize interactive Paystack checkout simulation modal
+      const generatedRef = `TN-DEP-${Math.floor(10000000 + Math.random() * 89999999)}`;
+      setPaystackTxRef(generatedRef);
+      setPaystackStep('processing');
+      setIsPaystackOpen(true);
+
+      // Transition to OTP verification stage
+      setTimeout(() => {
+        setPaystackStep('otp');
+      }, 1605);
+    }, 1300);
+  };
+
+  const handlePaystackOtpSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (paystackOtp.length < 4) {
+      addToast('Please enter the 4-digit security code sent to your phone.', 'error');
+      return;
+    }
+
+    setPaystackStep('processing');
+    addToast('Validating pin authorization with debit network switch...', 'info');
+
+    setTimeout(() => {
+      setPaystackStep('success');
+      const amt = parseFloat(cardValue) || 1500;
+      onFundWallet(
+        amt, 
+        `Card funded +₦${amt.toLocaleString()} (Gateway: Paystack Card Switch)`, 
+        'paystack_sim', 
+        paystackTxRef
+      );
+      addToast(`Payment successful! ₦${amt.toLocaleString()} securely loaded to wallet balance.`, 'success');
+
+      setTimeout(() => {
+        setIsPaystackOpen(false);
+        setCardNo('');
+        setCardExpiry('');
+        setCardCVV('');
+        setPaystackOtp('');
+      }, 1600);
+    }, 1800);
   };
 
   const handleFormatCardNo = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -627,6 +676,111 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
           </div>
         </form>
       )}
+
+      {/* Paystack Interactive Checkout Sandbox Modal Overlay */}
+      <AnimatePresence>
+        {isPaystackOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-3xl shadow-2xl overflow-hidden w-full max-w-md border border-slate-100 flex flex-col"
+            >
+              {/* Paystack distinctive brand header */}
+              <div className="bg-[#09a5db] text-white p-6 flex flex-col gap-1 relative">
+                <button 
+                  type="button"
+                  onClick={() => setIsPaystackOpen(false)}
+                  className="absolute right-4 top-4 text-white/80 hover:text-white font-bold p-1 hover:bg-white/10 rounded-full w-8 h-8 flex items-center justify-center text-sm cursor-pointer"
+                >
+                  ✕
+                </button>
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-white/20 rounded-lg">
+                    <CreditCard className="w-5 h-5 text-white animate-pulse" />
+                  </div>
+                  <span className="font-sans font-black tracking-wider text-xs uppercase opacity-90">PAYSTACK SECURE SWITCH</span>
+                </div>
+                <div className="mt-4">
+                  <span className="text-[10px] text-white/70 block uppercase">Paying customer</span>
+                  <span className="text-sm font-semibold font-mono tracking-tight">{user.email}</span>
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 flex flex-col gap-6">
+                {paystackStep === 'processing' && (
+                  <div className="flex flex-col items-center justify-center py-8 gap-4">
+                    <Loader2 className="w-12 h-12 text-[#0a2f4c] animate-spin" />
+                    <div className="text-center">
+                      <p className="font-semibold text-slate-800 text-sm">Validating payment instructions</p>
+                      <p className="text-xs text-slate-400 mt-1 font-medium">Communicating with the secure bank authorization server...</p>
+                    </div>
+                  </div>
+                )}
+
+                {paystackStep === 'otp' && (
+                  <form onSubmit={handlePaystackOtpSubmit} className="flex flex-col gap-5">
+                    <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex gap-3 text-amber-900 leading-normal">
+                      <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 self-center" />
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold font-display">3D Secure Sandbox Gate</span>
+                        <span className="text-[10px] text-amber-800 font-medium mt-0.5">Please authorize the debit charge of ₦{(parseFloat(cardValue) || 1500).toLocaleString()} using the standard mock bank passcode details.</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 align-middle text-center">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest font-display">ENTER 4-DIGIT TRANSACTION AUTH CODE</label>
+                      <input 
+                        type="password"
+                        placeholder="••••"
+                        value={paystackOtp}
+                        onChange={(e) => setPaystackOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                        maxLength={4}
+                        className="p-3 border-2 border-slate-200 focus:border-[#09a5db] text-center font-mono font-bold tracking-[2em] text-2xl w-48 mx-auto rounded-xl outline-none"
+                        required
+                        autoFocus
+                      />
+                      <span className="text-[10px] text-slate-400 mt-1 font-medium">A mockup verification PIN has been triggered to your active phone lines. Type any 4 digits to proceed.</span>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-4 bg-[#3cbf80] hover:bg-[#2fa067] text-white font-bold font-display rounded-xl text-xs tracking-wider uppercase transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Lock className="w-4 h-4 text-white" />
+                      Authorize & Charge ₦{(parseFloat(cardValue) || 1500).toLocaleString()}
+                    </button>
+                  </form>
+                )}
+
+                {paystackStep === 'success' && (
+                  <div className="flex flex-col items-center justify-center py-6 gap-4">
+                    <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-200">
+                      <Check className="w-7 h-7 stroke-[3px]" />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-extrabold text-slate-900 text-base">Payment Successful</p>
+                      <p className="text-xs text-slate-450 mt-1 font-semibold">Ledger successfully credited with ₦{(parseFloat(cardValue) || 1500).toLocaleString()}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer secure tags */}
+              <div className="border-t border-slate-100 bg-slate-50 px-6 py-4 flex items-center justify-between text-[10px] text-slate-400 font-bold font-sans">
+                <span className="flex items-center gap-1 text-[#0a2f4c]">
+                  <ShieldCheck className="w-4 h-4 text-[#3cbf80]" />
+                  SECURED BY PAYSTACK
+                </span>
+                <span className="font-mono">REF: {paystackTxRef}</span>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

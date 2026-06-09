@@ -109,6 +109,33 @@ export async function runMigrations() {
     console.log('✔ Migrated "beneficiaries" table.');
   }
 
+  // 4. API Configurations table for safe keys management
+  const hasConfigs = await db.schema.hasTable('api_configs');
+  if (!hasConfigs) {
+    await db.schema.createTable('api_configs', (table) => {
+      table.increments('id').primary();
+      table.string('user_email').notNullable().unique().references('email').inTable('users').onDelete('CASCADE');
+      table.string('sagecloud_api_key').nullable();
+      table.string('sagecloud_api_url').defaultTo('https://api.sagecloud.ng/v1').nullable();
+    });
+    console.log('✔ Migrated "api_configs" table.');
+  }
+
+  // 5. Git Simulated Commits table
+  const hasGitCommits = await db.schema.hasTable('git_commits');
+  if (!hasGitCommits) {
+    await db.schema.createTable('git_commits', (table) => {
+      table.increments('id').primary();
+      table.string('user_email').notNullable();
+      table.string('commit_hash').notNullable();
+      table.string('message').notNullable();
+      table.text('files_changed').notNullable();
+      table.string('timestamp').notNullable();
+      table.string('status').notNullable();
+    });
+    console.log('✔ Migrated "git_commits" table.');
+  }
+
   // Seed default data if database is empty
   await seedDatabase();
 }
@@ -132,6 +159,17 @@ async function seedDatabase() {
       is_pin_set: 1
     });
     console.log('✔ Seeded default profile for iqleadsbloger@gmail.com.');
+  }
+
+  // Check default api configurations
+  const config = await db('api_configs').where({ user_email: defaultEmail }).first();
+  if (!config) {
+    await db('api_configs').insert({
+      user_email: defaultEmail,
+      sagecloud_api_key: null,
+      sagecloud_api_url: 'https://api.sagecloud.ng/v1'
+    });
+    console.log('✔ Seeded default API configs entry.');
   }
 
   // Check transactions count
@@ -193,5 +231,38 @@ async function seedDatabase() {
       { id: 'b4', user_email: defaultEmail, type: 'iuc', name: 'Parlour DSTV', value: '10987654321', provider: 'DStv (MultiChoice)' }
     ]);
     console.log('✔ Seeded default saved beneficiaries into Knex DB.');
+  }
+
+  // Check simulated git commits count
+  const gitCount = await db('git_commits').count('id as val').first();
+  const commitsNum = gitCount ? Number((gitCount as any).val) : 0;
+  if (commitsNum === 0) {
+    await db('git_commits').insert([
+      {
+        user_email: defaultEmail,
+        commit_hash: '9fbca0286cd1bf63a0172bfdb894101cc7a40b92',
+        message: 'Initial project setup & database schemas with Knex & SQLite support',
+        files_changed: 'src/db/sqlite.ts, server.ts, package.json',
+        timestamp: new Date(Date.now() - 3600000 * 72).toISOString(),
+        status: 'PUSHED'
+      },
+      {
+        user_email: defaultEmail,
+        commit_hash: '30a10df85be99146ec001bf64c58cf32df73b06c',
+        message: 'Integrate Sagecloud.ng payment gateway and credentials settings pane',
+        files_changed: 'server.ts, src/components/SettingsConfig.tsx',
+        timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
+        status: 'PUSHED'
+      },
+      {
+        user_email: defaultEmail,
+        commit_hash: 'c82fab93a8d11c070f80bb9eb980bdff48ac91cf',
+        message: 'Add biometric authentication options and real-time VTU routing exceptions',
+        files_changed: 'server.ts, src/components/SettingsConfig.tsx',
+        timestamp: new Date(Date.now() - 3600000 * 3).toISOString(),
+        status: 'PUSHED'
+      }
+    ]);
+    console.log('✔ Seeded initial development simulated commits.');
   }
 }

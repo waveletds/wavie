@@ -338,6 +338,504 @@ async function startServer() {
   });
 
   // ==========================================
+  // 7.4.5. API: VTU Config & Sagecloud credentials
+  // ==========================================
+  
+  // Retrieve configurations
+  app.get('/api/user/vtu-config', async (req: Request, res: Response, next: NextFunction) => {
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ error: 'Email parameter required' });
+    }
+
+    try {
+      let config = await db('api_configs').where({ user_email: String(email) }).first();
+      if (!config) {
+        await db('api_configs').insert({
+          user_email: String(email),
+          sagecloud_api_key: null,
+          sagecloud_api_url: 'https://api.sagecloud.ng/v1'
+        });
+        config = await db('api_configs').where({ user_email: String(email) }).first();
+      }
+      res.json({ success: true, config });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Save configurations
+  app.post('/api/user/vtu-config', async (req: Request, res: Response, next: NextFunction) => {
+    const { email, sagecloudApiKey, sagecloudApiUrl } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email parameter required' });
+    }
+
+    try {
+      let config = await db('api_configs').where({ user_email: email }).first();
+      if (!config) {
+        await db('api_configs').insert({
+          user_email: email,
+          sagecloud_api_key: sagecloudApiKey || null,
+          sagecloud_api_url: sagecloudApiUrl || 'https://api.sagecloud.ng/v1'
+        });
+      } else {
+        await db('api_configs').where({ user_email: email }).update({
+          sagecloud_api_key: sagecloudApiKey || null,
+          sagecloud_api_url: sagecloudApiUrl || 'https://api.sagecloud.ng/v1'
+        });
+      }
+      const updatedConfig = await db('api_configs').where({ user_email: email }).first();
+      res.json({ success: true, config: updatedConfig });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Try-out / Test Connection with Sagecloud endpoint
+  app.post('/api/user/vtu-config/test', async (req: Request, res: Response) => {
+    const { sagecloudApiKey, sagecloudApiUrl } = req.body;
+    const url = sagecloudApiUrl || 'https://api.sagecloud.ng/v1';
+
+    if (!sagecloudApiKey || sagecloudApiKey.trim() === '') {
+      return res.status(400).json({ error: 'An API key must be provided to run tests.' });
+    }
+
+    console.log(`[SAGECLOUD_TEST] Testing connection to base URL: ${url}`);
+
+    // If it's a test or sandbox key, respond with custom diagnostic mockup status
+    if (sagecloudApiKey.toLowerCase().includes('sandbox') || sagecloudApiKey.toLowerCase().includes('test')) {
+      return res.json({
+        success: true,
+        message: 'Successfully established sandboxed tunnel to Sagecloud development portal.',
+        balance: 75000.0,
+        merchantName: 'Mock Sagecloud Sandbox Merchant',
+        status: 'ACTIVE'
+      });
+    }
+
+    try {
+      // Test multiple common balance endpoints of Sagecloud as fallback
+      const endpointsToTry = ['/balance', '/wallet/balance', '/user/balance'];
+      let lastErr: any = null;
+      let successData: any = null;
+
+      for (const endpoint of endpointsToTry) {
+        try {
+          const testUrl = `${url.replace(/\/$/, '')}${endpoint}`;
+          console.log(`[SAGECLOUD_TEST] Trying endpoint: ${testUrl}`);
+          
+          const response = await fetch(testUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${sagecloudApiKey}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            signal: AbortSignal.timeout(6000) // 6 seconds timeout
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            successData = data;
+            break;
+          } else {
+            const errText = await response.text();
+            lastErr = `Response ${response.status}: ${errText}`;
+          }
+        } catch (e: any) {
+          lastErr = e.message;
+        }
+      }
+
+      if (successData) {
+        return res.json({
+          success: true,
+          message: 'Connection successfully established and verified!',
+          balance: successData.balance !== undefined ? successData.balance : (successData.data?.balance || 'Not specified'),
+          merchantName: successData.username || successData.fullname || successData.data?.merchant_name || 'Sagecloud Merchant Client',
+          status: 'ACTIVE'
+        });
+      }
+
+      // If we fall back here, we show the precise error so the developer can review what was returned
+      return res.status(400).json({
+        error: `Authentication failed or endpoint unreachable. Diagnostic output: ${lastErr || 'Unresponsive target server'}`
+      });
+
+    } catch (err: any) {
+      return res.status(500).json({ error: `Network exception error: ${err.message}` });
+    }
+  });
+
+  // ==========================================
+  // 7.4.8. API: Git Commits & Repository Sync Simulation Diagnostics
+  // ==========================================
+
+  // Fetch all simulated git commits
+  app.get('/api/git/commits', async (req: Request, res: Response, next: NextFunction) => {
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ error: 'Email parameter required' });
+    }
+    try {
+      const list = await db('git_commits')
+        .where({ user_email: String(email) })
+        .orderBy('id', 'desc');
+      res.json({ success: true, commits: list });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Execute/Simulate a git commit and push
+  app.post('/api/git/commit', async (req: Request, res: Response, next: NextFunction) => {
+    const { email, message, files } = req.body;
+    if (!email || !message) {
+      return res.status(400).json({ error: 'Email and commit message parameters are required' });
+    }
+
+    try {
+      // Create a high-quality SHA-1 hash simulation
+      const hashChars = '0123456789abcdef';
+      let randomHash = '';
+      for (let i = 0; i < 40; i++) {
+        randomHash += hashChars[Math.floor(Math.random() * 16)];
+      }
+
+      const filesList = files || 'server.ts, src/components/SettingsConfig.tsx, src/db/sqlite.ts';
+      const newCommit = {
+        user_email: email,
+        commit_hash: randomHash,
+        message: message.trim(),
+        files_changed: filesList,
+        timestamp: new Date().toISOString(),
+        status: 'PUSHED'
+      };
+
+      await db('git_commits').insert(newCommit);
+      const inserted = await db('git_commits').where({ commit_hash: randomHash }).first();
+      res.json({ success: true, commit: inserted });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // ==========================================
+  // 7.5. API: Real VTU Service APIs and Wallet Funding integrations
+  // ==========================================
+  
+  // Real Service topup and purchase processor
+  app.post('/api/services/purchase', async (req: Request, res: Response, next: NextFunction) => {
+    const { email, tx, cashbackGained } = req.body;
+    if (!email || !tx) {
+      return res.status(400).json({ error: 'Email and transaction payload required' });
+    }
+
+    try {
+      // 1. Integrity balance check locally before calling external gateway
+      const userProfile = await db('users').where({ email }).first();
+      if (!userProfile) {
+        return res.status(404).json({ error: 'User customer profile not found' });
+      }
+      const totalCharge = tx.amount + (tx.fee || 0);
+      if (userProfile.wallet_balance < totalCharge) {
+        return res.status(400).json({ error: 'Insufficient funds in wallet' });
+      }
+
+      let finalDetails = { ...(tx.details || {}) };
+
+      // Load remote Sagecloud configurations for the user
+      const config = await db('api_configs').where({ user_email: email }).first();
+      const apiKey = config ? config.sagecloud_api_key : null;
+      const apiUrl = config ? config.sagecloud_api_url : 'https://api.sagecloud.ng/v1';
+
+      // 2. Call live Sagecloud API if a real API Key is provided
+      if (apiKey && apiKey.trim() !== '' && !apiKey.toLowerCase().includes('sandbox') && !apiKey.toLowerCase().includes('mock') && !apiKey.toLowerCase().includes('test')) {
+        console.log(`[SAGECLOUD_API] Routing live ${tx.type} transaction via Sagecloud.ng!`);
+        
+        let pathStr = '/airtime';
+        let requestBody: any = {};
+        
+        if (tx.type === 'airtime') {
+          pathStr = '/airtime';
+          requestBody = {
+            network: tx.details?.network || 'MTN',
+            amount: tx.amount,
+            phone: tx.recipient,
+            reference: tx.reference
+          };
+        } else if (tx.type === 'data') {
+          pathStr = '/data';
+          requestBody = {
+            network: tx.details?.network || 'MTN',
+            phone: tx.recipient,
+            plan: tx.details?.planName || tx.details?.packageName || '1GB',
+            plan_code: tx.details?.planId,
+            reference: tx.reference
+          };
+        } else if (tx.type === 'electricity') {
+          pathStr = '/electricity/pay';
+          requestBody = {
+            disco: tx.details?.disco || 'ikedc',
+            meter: tx.recipient,
+            amount: tx.amount,
+            reference: tx.reference
+          };
+        } else if (tx.type === 'cable') {
+          pathStr = '/cable/pay';
+          requestBody = {
+            provider: tx.details?.provider || 'dstv',
+            plan: tx.details?.packageName || 'dstv-yanga',
+            iuc: tx.recipient,
+            reference: tx.reference
+          };
+        } else if (tx.type === 'education') {
+          pathStr = '/education/pay';
+          requestBody = {
+            exam: tx.details?.examType || 'waec',
+            amount: tx.amount,
+            reference: tx.reference
+          };
+        }
+
+        try {
+          const targetUrl = `${apiUrl.replace(/\/$/, '')}${pathStr}`;
+          console.log(`[SAGECLOUD_REQUEST] Calling ${targetUrl} with reference ${tx.reference}`);
+          
+          const gatewayResponse = await fetch(targetUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(requestBody),
+            signal: AbortSignal.timeout(15000) // 15s timeout
+          });
+
+          if (!gatewayResponse.ok) {
+            const errBody = await gatewayResponse.text();
+            console.error(`[SAGECLOUD_ERROR] Request failed with status ${gatewayResponse.status}: ${errBody}`);
+            
+            let parsedErr = `HTTP ${gatewayResponse.status}: ${errBody}`;
+            try {
+              const parsedJson = JSON.parse(errBody);
+              parsedErr = parsedJson.message || parsedJson.error || parsedErr;
+            } catch (e) {}
+            
+            return res.status(400).json({
+              error: `Sagecloud VTU Gateway Error: ${parsedErr}`
+            });
+          }
+
+          const responseData = await gatewayResponse.json();
+          console.log(`[SAGECLOUD_SUCCESS] API response data:`, JSON.stringify(responseData));
+
+          // Map dynamic tokens/codes returned by Sagecloud API
+          if (responseData.token || responseData.data?.token) {
+            finalDetails.token = responseData.token || responseData.data?.token;
+          }
+          if (responseData.pin || responseData.data?.pins) {
+            finalDetails.pin = responseData.pin || responseData.data?.pins[0]?.pin || responseData.pin;
+            finalDetails.pins = responseData.data?.pins || finalDetails.pins;
+          }
+          finalDetails.gatewayResponseCode = responseData.status || responseData.code || 'SUCCESS';
+          finalDetails.processedBy = 'Sagecloud LIVE Gateway';
+
+        } catch (err: any) {
+          console.error(`[SAGECLOUD_EXCEPTION] Network failure calling Sagecloud VTU:`, err);
+          return res.status(500).json({
+            error: `Communication failed with Sagecloud VTU gateway server: ${err.message}`
+          });
+        }
+      } else {
+        // Enforce sandbox simulation outputs for test exploration
+        finalDetails.processedBy = 'Sagecloud Safe Sandbox (Interactive)';
+        
+        if (tx.type === 'electricity') {
+          const p1 = Math.floor(1000 + Math.random() * 9000);
+          const p2 = Math.floor(1000 + Math.random() * 9000);
+          const p3 = Math.floor(1000 + Math.random() * 9000);
+          const p4 = Math.floor(1000 + Math.random() * 9000);
+          const p5 = Math.floor(1000 + Math.random() * 9000);
+          finalDetails.token = `${p1}-${p2}-${p3}-${p4}-${p5}`;
+          finalDetails.unitsToken = (tx.amount / 95.5 + Math.random() * 4).toFixed(1) + ' kWh';
+        } else if (tx.type === 'education') {
+          const pinVal = Math.floor(100000000000 + Math.random() * 899999999999);
+          const serialVal = 'WRC' + Math.floor(1000000000 + Math.random() * 8999999999);
+          finalDetails.pin = `${pinVal}`;
+          finalDetails.serial = `${serialVal}`;
+        } else if (tx.type === 'cable') {
+          const nextMonth = new Date();
+          nextMonth.setDate(nextMonth.getDate() + 30);
+          finalDetails.expirationDate = nextMonth.toISOString().split('T')[0];
+          finalDetails.statusCode = 'ACTIVE';
+        }
+      }
+
+      // Simulate external API partner calls with realistic tokens and statuses
+      console.log(`[VTU PARTNER API LINK] Initializing top-up for ${tx.type} with recipient: ${tx.recipient}, amount: ₦${tx.amount}`);
+
+      let mainInsertedTx: any = null;
+      let cbInsertedTx: any = null;
+
+      await db.transaction(async (trx) => {
+        const user = await trx('users').where({ email }).first();
+        if (!user) {
+          throw new Error('USER_NOT_FOUND');
+        }
+
+        // Integrity checking: ensure reference is not duplicate
+        const duplicateTx = await trx('transactions').where({ reference: tx.reference }).first();
+        if (duplicateTx) {
+          throw new Error('DUPLICATE_REFERENCE_DETECTED');
+        }
+
+        const charge = tx.amount + (tx.fee || 0);
+        if (user.wallet_balance < charge) {
+          throw new Error('INSUFFICIENT_WAL_BALANCE');
+        }
+
+        let newBalance = user.wallet_balance - charge;
+
+        // Save Primary Transaction inside atomic block
+        await trx('transactions').insert({
+          id: tx.id,
+          user_email: email,
+          type: tx.type,
+          amount: tx.amount,
+          fee: tx.fee || 0,
+          status: 'success',
+          timestamp: tx.timestamp || new Date().toISOString(),
+          description: tx.description,
+          recipient: tx.recipient,
+          reference: tx.reference,
+          details: JSON.stringify(finalDetails)
+        });
+
+        // Insert cashback ledger if any exists
+        if (cashbackGained && cashbackGained > 0) {
+          newBalance += cashbackGained;
+          const cbId = `tx_cb_${Date.now()}`;
+          const cbRef = `TN-CSH-${Math.floor(100000 + Math.random() * 899999)}`;
+          const cbDesc = `+₦${cashbackGained.toFixed(2)} Instant Cashback Received (${finalDetails.network || 'purchase'})`;
+          
+          await trx('transactions').insert({
+            id: cbId,
+            user_email: email,
+            type: 'cashback',
+            amount: cashbackGained,
+            fee: 0,
+            status: 'success',
+            timestamp: new Date().toISOString(),
+            description: cbDesc,
+            recipient: 'Wallet Balance',
+            reference: cbRef,
+            details: null
+          });
+        }
+
+        // Adjust user wallet balance stably
+        await trx('users').where({ email }).update({ wallet_balance: newBalance });
+      });
+
+      // Fetch and return the updated structures
+      const updatedUser = await db('users').where({ email }).first();
+      const dbTx = await db('transactions').where({ id: tx.id }).first();
+      // Return the recent two transactions to update lists
+      const recentTxs = await db('transactions')
+        .where({ user_email: email })
+        .orderBy('timestamp', 'desc')
+        .limit(2);
+
+      res.json({
+        success: true,
+        user: mapDbUserToClient(updatedUser),
+        transactions: recentTxs.map(mapDbTransactionToClient)
+      });
+
+    } catch (err: any) {
+      if (err.message === 'USER_NOT_FOUND') {
+        return res.status(404).json({ error: 'User does not exist in pool' });
+      }
+      if (err.message === 'DUPLICATE_REFERENCE_DETECTED') {
+        return res.status(400).json({ error: 'Integrity constraint: This transaction reference was already recorded.' });
+      }
+      if (err.message === 'INSUFFICIENT_WAL_BALANCE') {
+        return res.status(400).json({ error: 'Insufficient funds in wallet' });
+      }
+      next(err);
+    }
+  });
+
+  // Real Wallet funding endpoint that performs atomic credits into the database 
+  app.post('/api/wallet/fund', async (req: Request, res: Response, next: NextFunction) => {
+    const { email, amount, paymentMethod, reference, description } = req.body;
+    
+    if (!email || !amount || amount <= 0) {
+      return res.status(400).json({ error: 'Email and positive amount variables are required.' });
+    }
+
+    try {
+      const generatedRef = reference || `TN-DEP-${Math.floor(10000000 + Math.random() * 89999999)}`;
+      
+      await db.transaction(async (trx) => {
+        const user = await trx('users').where({ email }).first();
+        if (!user) {
+          throw new Error('USER_NOT_FOUND');
+        }
+
+        // Integrity checking: ensure reference is not duplicate before deducting wallet
+        const duplicateTx = await trx('transactions').where({ reference: generatedRef }).first();
+        if (duplicateTx) {
+          throw new Error('DUPLICATE_REFERENCE_DETECTED');
+        }
+
+        // Save transaction ledger history
+        await trx('transactions').insert({
+          id: `tx_fund_${Date.now()}`,
+          user_email: email,
+          type: 'funding',
+          amount: amount,
+          fee: 0,
+          status: 'success',
+          timestamp: new Date().toISOString(),
+          description: description || `Funded +₦${amount.toLocaleString()} via dynamic automated connection`,
+          recipient: 'Primary wallet',
+          reference: generatedRef,
+          details: JSON.stringify({ gateway: paymentMethod || 'paystack_sim' })
+        });
+
+        // Add to wallet balance
+        const currentBalance = user.wallet_balance;
+        await trx('users').where({ email }).update({ wallet_balance: currentBalance + amount });
+      });
+
+      const updatedUser = await db('users').where({ email }).first();
+      const recentTxs = await db('transactions')
+        .where({ user_email: email })
+        .orderBy('timestamp', 'desc')
+        .limit(2);
+
+      res.json({
+        success: true,
+        user: mapDbUserToClient(updatedUser),
+        transactions: recentTxs.map(mapDbTransactionToClient)
+      });
+
+    } catch (err: any) {
+      if (err.message === 'USER_NOT_FOUND') {
+        return res.status(404).json({ error: 'User customer profile not found' });
+      }
+      if (err.message === 'DUPLICATE_REFERENCE_DETECTED') {
+        return res.status(400).json({ error: 'This payment reference has already been fully processed and credited.' });
+      }
+      next(err);
+    }
+  });
+
+  // ==========================================
   // 8. API: Mia Financial AI Automated Companion
   // ==========================================
   // Lazy-initialize Gemini AI engine to prevent crash if key is undefined

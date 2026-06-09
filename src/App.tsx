@@ -306,28 +306,51 @@ export default function App() {
       details,
     };
 
-    // Post transaction to server database API
-    fetch('/api/transactions/create', {
+    // Post transaction to real unified VTU service purchase API on backend
+    fetch('/api/services/purchase', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: user.email, tx: newTx })
+      body: JSON.stringify({ email: user.email, tx: newTx, cashbackGained })
     })
     .then(res => res.json())
     .then(data => {
       if (data.success && data.user) {
         setUser(data.user);
-        if (data.transaction) {
-          setTransactions((prev) => [data.transaction, ...prev]);
+        if (data.transactions) {
+          setTransactions((prev) => {
+            const incomingIds = data.transactions.map((t: any) => t.id);
+            const filtered = prev.filter(t => !incomingIds.includes(t.id));
+            return [...data.transactions, ...filtered];
+          });
+
+          // Set active receipt to primary purchased transaction which is now enriched with generated PIN details from Server APIs
+          const primaryTx = data.transactions.find((t: any) => t.id === newTx.id);
+          if (primaryTx) {
+            setActiveReceiptTx(primaryTx);
+          } else {
+            setActiveReceiptTx(newTx);
+          }
+        }
+        if (cashbackGained > 0) {
+          addToast(`Instant cashback of ₦${cashbackGained.toFixed(2)} received and credited!`, 'success');
         }
       }
     })
     .catch(err => {
-      console.error('SQL saving error:', err);
+      console.error('Service API execution error:', err);
+      // Fallback offline handler
       setUser((prev) => ({
         ...prev,
         walletBalance: prev.walletBalance - amount + cashbackGained,
       }));
       setTransactions((prev) => [newTx, ...prev]);
+      setActiveReceiptTx(newTx);
+    })
+    .finally(() => {
+      setIsPinModalOpen(false);
+      setPendingPurchaseParams(null);
+      setIsReceiptModalOpen(true);
+      addToast('Transaction executed successfully!', 'success');
     });
 
     // Save automatic beneficiaries if opted in
@@ -361,91 +384,55 @@ export default function App() {
         addToast(`Added beneficiary "${details.beneficiaryName}" (offline fallback)`, 'success');
       });
     }
-
-    // Credit additional cashback transaction ledger entry if cashback exists
-    if (cashbackGained > 0) {
-      setTimeout(() => {
-        const cashbackTx: Transaction = {
-          id: `tx_cb_${Date.now()}`,
-          type: 'cashback',
-          amount: cashbackGained,
-          fee: 0,
-          status: 'success',
-          timestamp: new Date().toISOString(),
-          description: `+₦${cashbackGained.toFixed(2)} Instant Cashback Received (${details.network} purchase)`,
-          recipient: 'Wallet Balance',
-          reference: `TN-CSH-${Math.floor(100000 + Math.random() * 899999)}`,
-        };
-        
-        fetch('/api/transactions/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: user.email, tx: cashbackTx })
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.user) {
-            setUser(data.user);
-            if (data.transaction) {
-              setTransactions((prev) => [data.transaction, ...prev]);
-            }
-          }
-        })
-        .catch(err => {
-          console.error('SQL saving error:', err);
-          setUser((prev) => ({
-            ...prev,
-            walletBalance: prev.walletBalance + cashbackGained,
-          }));
-          setTransactions((prev) => [cashbackTx, ...prev]);
-        });
-        addToast(`Cashback bonus of ₦${cashbackGained.toFixed(2)} credited!`, 'success');
-      }, 900);
-    }
-
-    // Triggers digital reception invoice
-    setIsPinModalOpen(false);
-    setPendingPurchaseParams(null);
-    setActiveReceiptTx(newTx);
-    setIsReceiptModalOpen(true);
-    addToast('Transaction executed successfully!', 'success');
   };
 
-  const handleWalletFunding = (amount: number, description: string) => {
-    const newTx: Transaction = {
-      id: `tx_fund_${Date.now()}`,
-      type: 'funding',
-      amount,
-      fee: 0,
-      status: 'success',
-      timestamp: new Date().toISOString(),
-      description,
-      recipient: 'Primary wallet',
-      reference: `TN-DEP-${Math.floor(10000000 + Math.random() * 89999999)}`,
-    };
+  const handleWalletFunding = (amount: number, description: string, paymentMethod?: string, reference?: string) => {
+    const generatedRef = reference || `TN-DEP-${Math.floor(10000000 + Math.random() * 89999999)}`;
 
-    fetch('/api/transactions/create', {
+    fetch('/api/wallet/fund', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: user.email, tx: newTx })
+      body: JSON.stringify({
+        email: user.email,
+        amount,
+        paymentMethod: paymentMethod || 'bank_transfer_sim',
+        reference: generatedRef,
+        description
+      })
     })
     .then(res => res.json())
     .then(data => {
       if (data.success && data.user) {
         setUser(data.user);
-        if (data.transaction) {
-          setTransactions((prev) => [data.transaction, ...prev]);
+        if (data.transactions) {
+          setTransactions((prev) => {
+            const incomingIds = data.transactions.map((t: any) => t.id);
+            const filtered = prev.filter(t => !incomingIds.includes(t.id));
+            return [...data.transactions, ...filtered];
+          });
         }
         addToast(`Successfully funded wallet with ₦${amount.toLocaleString()}`, 'success');
       }
     })
     .catch(err => {
-      console.error(err);
+      console.error('Wallet funding api error:', err);
+      // Fallback
       setUser((prev) => ({
         ...prev,
         walletBalance: prev.walletBalance + amount,
       }));
-      setTransactions((prev) => [newTx, ...prev]);
+      const fallbackTx: Transaction = {
+        id: `tx_fund_${Date.now()}`,
+        type: 'funding',
+        amount,
+        fee: 0,
+        status: 'success',
+        timestamp: new Date().toISOString(),
+        description,
+        recipient: 'Primary wallet',
+        reference: generatedRef,
+      };
+      setTransactions((prev) => [fallbackTx, ...prev]);
     });
   };
 

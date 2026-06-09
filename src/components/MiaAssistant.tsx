@@ -256,7 +256,7 @@ export const MiaAssistant: React.FC<MiaAssistantProps> = ({
       <div 
         id="mia-persistent-launcher"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 bg-slate-900 border-2 border-slate-800 text-white rounded-full p-3.5 shadow-2xl hover:shadow-cyan-500/10 hover:border-indigo-500/60 duration-300 group cursor-pointer flex items-center gap-2.5 select-none"
+        className="fixed bottom-22 right-4 md:bottom-6 md:right-6 z-45 bg-slate-900 border-2 border-slate-800 text-white rounded-full p-3.5 shadow-2xl hover:shadow-cyan-500/10 hover:border-indigo-500/60 duration-300 group cursor-pointer flex items-center gap-2.5 select-none"
       >
         <div className="relative">
           <BrainCircuit className="w-6 h-6 text-indigo-400 group-hover:scale-110 duration-300 animate-[pulse_2.5s_infinite]" />
@@ -562,7 +562,7 @@ export const MiaAssistant: React.FC<MiaAssistantProps> = ({
                   id="mia-send-chat-btn"
                   type="submit"
                   disabled={!inputValue.trim() && !selectedImage}
-                  className="p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl disabled:bg-slate-905 disabled:text-slate-600 border border-indigo-700/20 disabled:border-none cursor-pointer active:scale-95 duration-100 font-bold flex items-center justify-center shrink-0"
+                  className="p-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl disabled:bg-slate-800 disabled:text-slate-500 border border-indigo-700/20 disabled:border-none cursor-pointer active:scale-95 duration-100 font-bold flex items-center justify-center shrink-0"
                 >
                   <Send className="w-4 h-4" />
                 </button>
