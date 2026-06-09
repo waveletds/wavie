@@ -1401,11 +1401,11 @@ export default function App() {
           <main className="flex-grow flex flex-col pb-20 md:pb-6 max-w-7xl mx-auto w-full px-4 md:px-6 py-6 overflow-x-hidden">
             
             {/* UNIFIED TOP BAR FOR NAV, USER, NOTIFICATIONS (Top Left Focus Navigation, Top Right Actions) */}
-            <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 mb-6 border-b border-slate-205">
+            <header className="flex items-center justify-between gap-2.5 pb-4 mb-6 border-b border-slate-205 w-full min-w-0">
                {/* Left side: Navigation links row */}
-               <div className="flex items-center gap-3 flex-wrap">
+               <div className="flex items-center min-w-0">
                   {/* Top-left Quick-Navigation Row */}
-                  <nav className="flex items-center gap-1 bg-slate-100 p-1 rounded-full border border-slate-200">
+                  <nav className="flex items-center gap-1 bg-slate-100 p-0.5 sm:p-1 rounded-full border border-slate-200 overflow-x-auto no-scrollbar scroll-smooth">
                     {menuItems.slice(0, 4).map((item) => (
                       <button
                         key={item.id}
@@ -1414,21 +1414,21 @@ export default function App() {
                           setActiveTab(item.id as ActiveTab);
                           setShowNotifications(false);
                         }}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold font-sans transition-all active:scale-95 cursor-pointer ${
+                        className={`flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold font-sans transition-all active:scale-95 cursor-pointer whitespace-nowrap ${
                           activeTab === item.id
                             ? 'bg-slate-900 text-white shadow-sm'
                             : 'text-slate-650 hover:bg-slate-200'
                         }`}
                       >
                         {item.icon}
-                        <span className="hidden sm:inline">{item.label}</span>
+                        <span className="hidden min-[480px]:inline">{item.label}</span>
                       </button>
                     ))}
                   </nav>
                </div>
 
                {/* Right side: Notification and User Account Info */}
-               <div className="flex items-center gap-3 justify-end ml-auto">
+               <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 justify-end ml-auto">
                   {/* Notification Bell with Badge */}
                   <div className="relative">
                      <button
@@ -1487,16 +1487,15 @@ export default function App() {
                      )}
                   </div>
 
-                  {/* User Profile avatar picture only, no name text displaying */}
                   <div 
                     id="top-user-profile-capsule"
                     onClick={() => {
                       setActiveTab('settings');
                       addToast('Navigated to profile configurations', 'info');
                     }}
-                    className="flex items-center p-1 bg-white hover:bg-slate-50 border border-slate-200 rounded-full cursor-pointer transition-all active:scale-95 shadow-sm"
+                    className="flex items-center p-0.5 sm:p-1 bg-white hover:bg-slate-50 border border-slate-200 rounded-full cursor-pointer transition-all active:scale-95 shadow-sm"
                   >
-                    <div className="w-8 h-8 rounded-full relative">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full relative">
                       <img 
                         src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop" 
                         alt="User Profile"

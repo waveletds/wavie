@@ -326,301 +326,95 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
 
       {activeTab === 'fund' ? (
         /* ================= DEPOSIT SCREEN ================= */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6" id="deposit-sub-view">
-          {/* Methods select left sidebar */}
-          <div className="flex flex-col gap-2.5">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display mb-1">
-              Funding Options
-            </h3>
-            <button
-              id="method-transfer-btn"
-              onClick={() => setFundMethod('transfer')}
-              className={`p-4 border text-left rounded-2xl flex items-center gap-3 transition-all ${
-                fundMethod === 'transfer'
-                  ? 'border-emerald-500 bg-emerald-50/50 shadow-sm'
-                  : 'border-slate-100 bg-white hover:bg-slate-50'
-              }`}
-            >
-              <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
-                <Building2 className="w-4 h-4" />
+        <div className="flex flex-col items-center justify-center w-full max-w-xl mx-auto p-1 sm:p-2" id="deposit-sub-view">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 sm:p-8 w-full flex flex-col gap-6">
+            
+            {/* Header info */}
+            <div className="text-center pb-2 border-b border-rose-50/50">
+              <div className="w-12 h-12 bg-[#09a5db]/10 rounded-full flex items-center justify-center text-[#09a5db] mx-auto mb-3">
+                <CreditCard className="w-6 h-6 animate-pulse-slow" />
               </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-bold font-display text-slate-800">Dynamic Bank Account</span>
-                <span className="text-[10px] text-slate-400 mt-0.5">Instant bank transfer cleared</span>
+              <h3 className="font-display font-black text-slate-850 text-base">Secure Wallet Deposit</h3>
+              <p className="text-xs text-slate-400 mt-1 font-medium">Auto-deposit credit instantly via modern bank-grade Paystack gateway.</p>
+            </div>
+
+            {/* Amount input block */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display text-center sm:text-left">
+                Enter Amount to Deposit (₦)
+              </label>
+              <div className="relative">
+                <span className="absolute left-4.5 top-1/2 -translate-y-1/2 text-2xl font-black text-slate-400 font-display">
+                  ₦
+                </span>
+                <input
+                  id="payment-card-amount-input"
+                  type="number"
+                  placeholder="5,000"
+                  min={100}
+                  max={500000}
+                  value={cardValue}
+                  onChange={(e) => setCardValue(e.target.value)}
+                  className="w-full p-4 pl-12 pr-6 border-2 border-slate-200 bg-slate-50 focus:bg-white focus:border-[#09a5db] rounded-2xl text-2xl font-extrabold tracking-tight outline-none font-display transition-all text-slate-900"
+                  required
+                />
               </div>
-            </button>
+            </div>
 
-            <button
-              id="method-card-btn"
-              onClick={() => setFundMethod('card')}
-              className={`p-4 border text-left rounded-2xl flex items-center gap-3 transition-all ${
-                fundMethod === 'card'
-                  ? 'border-emerald-500 bg-emerald-50/50 shadow-sm'
-                  : 'border-slate-100 bg-white hover:bg-slate-50'
-              }`}
-            >
-              <div className="p-2 bg-rose-50 rounded-lg text-rose-500">
-                <CreditCard className="w-4 h-4" />
-              </div>
-              <div className="flex flex-col flex-grow">
-                <span className="text-xs font-bold font-display text-slate-800">Card Payment (3D Secure)</span>
-                <span className="text-[10px] text-slate-400 mt-0.5">Paystack Secure Gate</span>
-              </div>
-            </button>
-
-            <button
-              id="method-ussd-btn"
-              onClick={() => setFundMethod('ussd')}
-              className={`p-4 border text-left rounded-2xl flex items-center gap-3 transition-all ${
-                fundMethod === 'ussd'
-                  ? 'border-emerald-500 bg-emerald-50/50 shadow-sm'
-                  : 'border-slate-100 bg-white hover:bg-slate-50'
-              }`}
-            >
-              <div className="p-2 bg-amber-50 rounded-lg text-amber-500">
-                <Smartphone className="w-4 h-4" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-bold font-display text-slate-800">USSD Codes Manual</span>
-                <span className="text-[10px] text-slate-400 mt-0.5">Quick codes for offline reloads</span>
-              </div>
-            </button>
-          </div>
-
-          {/* Methods detailed views */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-            {fundMethod === 'transfer' && (
-              <div className="flex flex-col gap-6" id="transfer-funding-card">
-                <div>
-                  <h3 className="font-display font-black text-slate-800 text-sm">Dynamic Virtual Bank Accounts</h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5 font-medium">Any electronic bank transfers triggered here credit your wallet index immediately.</p>
-                </div>
-
-                <div className="p-5 bg-slate-900 text-white rounded-2xl relative overflow-hidden group">
-                  <div className="absolute right-0 bottom-0 w-24 h-24 bg-white/5 rounded-full blur-xl" />
-                  
-                  <div className="border-b border-white/5 pb-4 mb-4 flex justify-between items-center text-xs">
-                    <span className="font-display font-bold text-slate-300">🏢 REGISTERED PAYMENT LINK AGREEMENT</span>
-                    <span className="text-[10px] bg-emerald-500 text-white px-2 py-0.5 rounded-full font-bold">ACTIVE</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <span className="text-[10px] text-slate-400 uppercase block font-display">DESIGNATED BANKEE:</span>
-                      <span className="text-sm font-bold font-display text-white">Wema Bank (Wavie)</span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10px] text-slate-400 uppercase block font-display">ACCOUNT TITLE / NAME:</span>
-                      <span className="text-sm font-bold font-display text-white uppercase">{user.name || 'WAVIE DEVELOPER'}</span>
-                    </div>
-
-                    <div className="md:col-span-2 border-t border-white/5 pt-3 mt-1 flex justify-between items-center bg-white/5 p-3 rounded-xl backdrop-blur-sm">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-400 w-56 truncate font-mono">DURABLE VIRTUAL LEDGER ACCOUNT NO (10 digits):</span>
-                        <span className="text-2xl font-black font-mono text-white tracking-widest mt-1">
-                          {virtualAccountNum}
-                        </span>
-                      </div>
-                      <button
-                        id="copy-virtual-acc-btn"
-                        onClick={handleCopyAccount}
-                        className="py-2.5 px-4 bg-white text-emerald-950 hover:bg-slate-100 shadow-sm hover:shadow-md rounded-xl text-xs font-bold font-display flex items-center gap-1.5 transition-all active:scale-95"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                        {copiedAccount ? 'Copied' : 'Copy Acc'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Instant Bank Transfer Notification Node */}
-                <div className="p-5 border border-dashed border-slate-200 bg-slate-50 rounded-2xl flex flex-col gap-4">
-                  <span className="text-xs font-bold text-emerald-950 flex items-center gap-1">
-                    <Smartphone className="w-4 h-4 text-emerald-600" />
-                    Direct Mobile Transfer Verification Node
+            {/* Conditional dynamic prompt once amount is filled */}
+            {parseFloat(cardValue) > 0 ? (
+              <motion.div 
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-emerald-50/80 border border-emerald-100/70 p-4 rounded-2xl flex gap-3 text-emerald-900 leading-relaxed font-sans mt-1"
+              >
+                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 self-start mt-0.5" />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold font-display">Processor Authorization Ready</span>
+                  <span className="text-[11px] text-emerald-800 font-medium mt-0.5">
+                    Please prompt the secure payment gateway to proceed. If you are satisfied with depositing <strong>₦{parseFloat(cardValue).toLocaleString()}</strong>, tap <strong>Pay Now</strong> below to authorize.
                   </span>
-
-                  <div className="flex flex-col md:flex-row gap-3">
-                    <div className="flex-grow">
-                      <label className="text-[10px] font-bold text-slate-400 block mb-1">AMOUNT TO TRANSFER (₦)</label>
-                      <input
-                        id="simulation-amount-input"
-                        type="number"
-                        placeholder="₦5,000"
-                        value={fundingAmount}
-                        onChange={(e) => setFundingAmount(e.target.value)}
-                        className="w-full p-2.5 border border-slate-200 bg-white rounded-xl text-base font-bold outline-none font-display focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <button
-                      id="simulate-transfer-trigger-btn"
-                      type="button"
-                      onClick={handleTriggerMockTransfer}
-                      disabled={isSimulatingTransfer}
-                      className="py-2.5 px-6 self-end bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold font-display rounded-xl transition-all shadow-md active:scale-95 disabled:bg-slate-300 flex items-center justify-center gap-1.5 h-[45px] w-full md:w-auto"
-                    >
-                      {isSimulatingTransfer ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          Settling...
-                        </>
-                      ) : (
-                        <>
-                          <ArrowDownLeft className="w-4 h-4" />
-                          Verify ₦{(parseFloat(fundingAmount) || 0).toLocaleString()} Credit Notification
-                        </>
-                      )}
-                    </button>
-                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex gap-3 text-slate-500 leading-relaxed font-sans mt-1">
+                <AlertCircle className="w-5 h-5 text-slate-400 shrink-0 self-start mt-0.5" />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold font-display text-slate-700">Enter Deposit Amount</span>
+                  <span className="text-[11px] text-slate-450 font-medium mt-0.5">
+                    Type any amount from ₦100 and above to unlock the Paystack checkout gateway.
+                  </span>
                 </div>
               </div>
             )}
 
-            {fundMethod === 'card' && (
-              <form onSubmit={handleTriggerCardFund} className="flex flex-col gap-4" id="card-funding-form">
-                <div>
-                  <h3 className="font-display font-black text-slate-850 text-sm">Online Gateway Credit Placement</h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Debit card recharges deliver credit and cashbacks immediately.</p>
-                </div>
+            {/* Pay Now Button */}
+            <button
+              id="real-paystack-popup-btn"
+              type="button"
+              onClick={handlePaystackCheckout}
+              disabled={isProcessingCard || !cardValue || parseFloat(cardValue) <= 0}
+              className="w-full py-4 bg-emerald-500 hover:bg-emerald-440 disabled:bg-slate-200 text-slate-950 disabled:text-slate-450 rounded-2xl text-xs font-black font-display uppercase tracking-widest transition-all active:scale-95 disabled:pointer-events-none shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer h-[54px]"
+            >
+              {isProcessingCard ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin text-slate-950" />
+                  Connecting secure checkout portal...
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-5 h-5 text-slate-950 animate-pulse-slow font-bold" />
+                  Pay Now
+                </>
+              )}
+            </button>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  <div className="md:col-span-2 flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">CARHOLDER DEBIT PAN (16 digits)</label>
-                    <div className="relative">
-                      <input
-                        id="payment-card-pan-input"
-                        type="text"
-                        placeholder="4321 0000 0000 0000"
-                        value={cardNo}
-                        onChange={handleFormatCardNo}
-                        maxLength={19} // 16 digits + 3 spaces
-                        className="w-full p-3 pl-11 border border-slate-205 rounded-xl text-base font-mono font-bold tracking-widest bg-slate-50 focus:bg-white focus:border-emerald-500 outline-none shadow-inner"
-                        required
-                      />
-                      <CreditCard className="absolute left-3.5 top-4.5 w-4 h-4 text-slate-450" />
-                    </div>
-                  </div>
+            {/* Secure Badge */}
+            <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-bold font-sans">
+              <Lock className="w-3.5 h-3.5 text-slate-350" />
+              <span>SECURED & ENCRYPTED BY PAYSTACK PORTAL</span>
+            </div>
 
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Expiration (MM/YY)</label>
-                    <input
-                      id="payment-card-exp-input"
-                      type="text"
-                      placeholder="12/28"
-                      value={cardExpiry}
-                      onChange={handleFormatExpiry}
-                      maxLength={5}
-                      className="w-full p-3 border border-slate-205 rounded-xl text-sm font-mono text-center font-bold tracking-widest bg-slate-50 focus:bg-white outline-none"
-                      required
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Security CVV (3 digits)</label>
-                    <input
-                      id="payment-card-cvv-input"
-                      type="password"
-                      placeholder="•••"
-                      value={cardCVV}
-                      onChange={(e) => setCardCVV(e.target.value.replace(/[^0-9]/g, ''))}
-                      maxLength={3}
-                      className="w-full p-3 border border-slate-205 rounded-xl text-sm font-mono text-center font-bold tracking-widest bg-slate-50 focus:bg-white outline-none"
-                      required
-                    />
-                  </div>
-
-                  <div className="md:col-span-2 flex flex-col gap-1.5">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display">Payment Amount (₦)</label>
-                    <input
-                      id="payment-card-amount-input"
-                      type="number"
-                      placeholder="N1,500"
-                      min={100}
-                      max={100000}
-                      value={cardValue}
-                      onChange={(e) => setCardValue(e.target.value)}
-                      className="w-full p-4.5 border border-slate-205 rounded-xl text-lg font-black tracking-tight bg-slate-50 focus:bg-white outline-none font-display focus:border-emerald-500"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 mt-4">
-                  {/* Real Paystack Popup Button */}
-                  <button
-                    id="real-paystack-popup-btn"
-                    type="button"
-                    onClick={handlePaystackCheckout}
-                    disabled={isProcessingCard}
-                    className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-450 text-slate-950 rounded-xl text-xs font-bold font-display uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {isProcessingCard ? (
-                      <>
-                        <Loader2 className="w-4.5 h-4.5 animate-spin text-slate-950" />
-                        Connecting to Paystack gateway...
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck className="w-4.5 h-4.5 text-slate-950 animate-pulse" />
-                        Pay Secure with Paystack (Inline Gateway)
-                      </>
-                    )}
-                  </button>
-
-                  {/* Manual Sim Button */}
-                  <button
-                    id="card-fund-submit-btn"
-                    type="submit"
-                    disabled={isProcessingCard}
-                    className="w-full py-3.5 bg-slate-900 border border-slate-950 hover:bg-black text-white rounded-xl text-xs font-bold font-display transition-all active:scale-95 disabled:bg-slate-350 shadow shadow-md hover:shadow-lg flex items-center justify-center gap-1.5"
-                  >
-                    {isProcessingCard ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin text-white" />
-                        Authenticating card payload...
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="w-4 h-4 text-emerald-400 animate-pulse" />
-                        Authorize securely (Standard card processing)
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {fundMethod === 'ussd' && (
-              <div className="flex flex-col gap-6" id="ussd-funding-board">
-                <div>
-                  <h3 className="font-display font-black text-slate-850 text-sm font-display">USSD Codes Quick Reference</h3>
-                  <p className="text-[11px] text-slate-430 leading-relaxed font-semibold">Copy and dial corresponding bank codes from your registered SIM line to complete manual funding transactions directly.</p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-1">
-                  {bankUSSDs.map((ussd) => (
-                    <div key={ussd.name} className="p-3 border border-slate-100 rounded-xl flex items-center justify-between text-xs bg-slate-50/50">
-                      <span className="font-bold text-slate-700 font-display">{ussd.name}</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono font-bold text-emerald-700 tracking-wider font-bold">{ussd.code}</span>
-                        <button
-                          id={`copy-ussd-${ussd.name.replace(/\s/g, '-')}`}
-                          onClick={() => {
-                            navigator.clipboard.writeText(ussd.code);
-                            addToast(`Copied USSD ${ussd.code} code.`, 'success');
-                          }}
-                          className="p-1 hover:bg-slate-200 text-slate-400 hover:text-slate-700 rounded transition-colors"
-                        >
-                          <Copy className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       ) : (
