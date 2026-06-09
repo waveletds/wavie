@@ -809,6 +809,10 @@ async function startServer() {
           nextMonth.setDate(nextMonth.getDate() + 30);
           finalDetails.expirationDate = nextMonth.toISOString().split('T')[0];
           finalDetails.statusCode = 'ACTIVE';
+        } else if (tx.type === 'smm') {
+          finalDetails.estimatedStart = '15 - 30 minutes';
+          finalDetails.trackingId = 'BOOST-' + Math.floor(100000 + Math.random() * 899999);
+          finalDetails.status = 'PROCESSING';
         }
       }
 
@@ -1286,7 +1290,7 @@ async function startServer() {
         .limit(5);
 
       const latestMessage = messages[messages.length - 1];
-      const ai = getGeminiClient();
+      let ai = getGeminiClient();
 
       if (ai) {
         // Build customized Nigeria top-up systems sandbox environment instructions
@@ -1361,28 +1365,35 @@ Do NOT wrap the JSON inside markdown code blocks (like \`\`\`json). Output raw, 
           });
         }
 
-        const response = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
-          contents: contentsParts,
-          config: {
-            systemInstruction: systemInstruction,
-            responseMimeType: "application/json",
-            temperature: 0.6,
-          }
-        });
-
-        const rawText = response.text || "{}";
         try {
-          const parsed = JSON.parse(rawText.trim());
-          res.json(parsed);
-        } catch (e) {
-          console.error("Gemini failed to output exact JSON schema, applying fallback container.", e);
-          res.json({
-            text: rawText,
-            action: null
+          const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: contentsParts,
+            config: {
+              systemInstruction: systemInstruction,
+              responseMimeType: "application/json",
+              temperature: 0.6,
+            }
           });
+
+          const rawText = response.text || "{}";
+          try {
+            const parsed = JSON.parse(rawText.trim());
+            return res.json(parsed);
+          } catch (e) {
+            console.error("Gemini failed to output exact JSON schema, applying fallback container.", e);
+            return res.json({
+              text: rawText,
+              action: null
+            });
+          }
+        } catch (genError) {
+          console.error("Gemini generateContent runtime failed, reverting automatically to sandbox simulation:", genError);
+          ai = null;
         }
-      } else {
+      }
+
+      if (!ai) {
         // ==========================================
         // Deep Sandbox Offline Fallback Simulation
         // ==========================================

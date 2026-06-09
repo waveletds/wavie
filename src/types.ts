@@ -9,7 +9,8 @@ export type TransactionType =
   | 'funding' 
   | 'withdrawal' 
   | 'referral_bonus' 
-  | 'cashback';
+  | 'cashback'
+  | 'smm';
 
 export type TransactionStatus = 'success' | 'failed' | 'pending';
 
@@ -84,6 +85,7 @@ export type ActiveTab =
   | 'education' 
   | 'wallet' 
   | 'transactions' 
-  | 'settings';
+  | 'settings'
+  | 'smm';
 
 export type Language = 'english' | 'pidgin';

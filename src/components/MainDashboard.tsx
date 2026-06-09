@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {   Wallet, ArrowDownLeft, ArrowUpRight, ArrowRight, Phone, 
   Lightbulb, Tv, GraduationCap, Copy, Users, ChevronRight, Zap, RefreshCw,
-  Sunrise, Sun, Moon
+  Sunrise, Sun, Moon, Share2
 } from 'lucide-react';
 import { UserState, Transaction, SavedBeneficiary, ActiveTab, Language } from '../types';
 import { PIDGIN_DICT, ENGLISH_DICT } from '../data';
@@ -71,11 +71,12 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
   };
 
   const serviceIcons = {
-    airtime: { icon: <Phone className="w-5 h-5" />, label: dict.airtime, tab: 'airtime', desc: lang === 'pidgin' ? 'Call credit sharp' : 'Cheap refills' },
-    data: { icon: <Phone className="w-5 h-5" />, label: dict.data, tab: 'data', desc: lang === 'pidgin' ? 'Cheap SME plans' : 'High speed internet' },
-    electricity: { icon: <Lightbulb className="w-5 h-5" />, label: dict.electricity, tab: 'electricity', desc: lang === 'pidgin' ? 'Nepa electricity' : 'Prepaid & Postpaid' },
-    cable: { icon: <Tv className="w-5 h-5" />, label: dict.cable, tab: 'cable', desc: lang === 'pidgin' ? 'MultiChoice decoder' : 'DStv & GOtv instant' },
-    education: { icon: <GraduationCap className="w-5 h-5" />, label: dict.education, tab: 'education', desc: lang === 'pidgin' ? 'WAEC, NECO pins' : 'Result ePIN check' },
+    airtime: { icon: <Phone className="w-4.5 h-4.5" />, label: dict.airtime, tab: 'airtime', desc: lang === 'pidgin' ? 'Call credit sharp' : 'Cheap refills' },
+    data: { icon: <RefreshCw className="w-4.5 h-4.5" />, label: dict.data, tab: 'data', desc: lang === 'pidgin' ? 'SME data bundle' : 'High speed internet' },
+    electricity: { icon: <Lightbulb className="w-4.5 h-4.5" />, label: dict.electricity, tab: 'electricity', desc: lang === 'pidgin' ? 'Nepa electricity' : 'Prepaid billing' },
+    cable: { icon: <Tv className="w-4.5 h-4.5" />, label: dict.cable, tab: 'cable', desc: lang === 'pidgin' ? 'Decoder subscription' : 'DStv & GOtv' },
+    education: { icon: <GraduationCap className="w-4.5 h-4.5" />, label: dict.education, tab: 'education', desc: lang === 'pidgin' ? 'WAEC, NECO pins' : 'Result ePIN check' },
+    smm: { icon: <Share2 className="w-4.5 h-4.5" />, label: 'SMM Booster', tab: 'smm', desc: lang === 'pidgin' ? 'Follo & view booster' : 'Social boost views' },
   };
 
   const getTxTypeStyles = (type: string) => {
@@ -184,31 +185,32 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           {dict.quick_actions_header}
         </h2>
         
-        <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-5 gap-3 sm:gap-4">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
           {Object.entries(serviceIcons).map(([key, item]) => {
             const serviceColors: Record<string, { bg: string, text: string, hoverBg: string }> = {
-              airtime: { bg: 'bg-blue-50', text: 'text-blue-600', hoverBg: 'group-hover:bg-blue-600 group-hover:text-white' },
-              data: { bg: 'bg-purple-50', text: 'text-purple-600', hoverBg: 'group-hover:bg-purple-600 group-hover:text-white' },
-              electricity: { bg: 'bg-yellow-50', text: 'text-yellow-600', hoverBg: 'group-hover:bg-yellow-600 group-hover:text-white' },
-              cable: { bg: 'bg-red-50', text: 'text-red-500', hoverBg: 'group-hover:bg-red-500 group-hover:text-white' },
-              education: { bg: 'bg-emerald-50', text: 'text-emerald-600', hoverBg: 'group-hover:bg-emerald-600 group-hover:text-white' },
+              airtime: { bg: 'bg-indigo-50 border border-indigo-100/50', text: 'text-indigo-600', hoverBg: 'group-hover:bg-indigo-650 group-hover:text-white' },
+              data: { bg: 'bg-emerald-50 border border-emerald-100/50', text: 'text-emerald-600', hoverBg: 'group-hover:bg-emerald-650 group-hover:text-white' },
+              electricity: { bg: 'bg-amber-50 border border-amber-100/50', text: 'text-amber-600', hoverBg: 'group-hover:bg-amber-500 group-hover:text-white' },
+              cable: { bg: 'bg-rose-50 border border-rose-100/50', text: 'text-rose-600', hoverBg: 'group-hover:bg-rose-500 group-hover:text-white' },
+              education: { bg: 'bg-sky-50 border border-sky-100/50', text: 'text-sky-600', hoverBg: 'group-hover:bg-sky-650 group-hover:text-white' },
+              smm: { bg: 'bg-purple-50 border border-purple-100/50', text: 'text-purple-600', hoverBg: 'group-hover:bg-purple-650 group-hover:text-white' },
             };
-            const colors = serviceColors[key] || { bg: 'bg-emerald-50', text: 'text-emerald-600', hoverBg: 'group-hover:bg-emerald-600 group-hover:text-white' };
+            const colors = serviceColors[key] || { bg: 'bg-emerald-50', text: 'text-emerald-600', hoverBg: 'group-hover:bg-emerald-650 group-hover:text-white' };
 
             return (
               <button
                 key={key}
                 id={`quick-action-tab-${item.tab}`}
                 onClick={() => onNavigate(item.tab as ActiveTab)}
-                className="bg-white/85 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-[#E5E2DA]/80 hover:border-emerald-500 hover:bg-white hover:-translate-y-1 hover:scale-[1.03] active:scale-95 cursor-pointer flex flex-col items-center justify-center gap-3 group transition-all duration-300 text-center shadow-[0_6px_20px_rgba(115,108,92,0.02)] hover:shadow-[0_16px_36px_rgba(115,108,92,0.07)] select-none"
+                className="bg-white/80 backdrop-blur-md p-2.5 sm:p-4 rounded-xl sm:rounded-2xl border border-[#E5E2DA]/60 hover:border-emerald-500 hover:bg-white hover:-translate-y-0.5 max-sm:active:scale-95 sm:hover:scale-[1.02] cursor-pointer flex flex-col items-center justify-center gap-1.5 group transition-all duration-300 text-center shadow-[0_4px_12px_rgba(115,108,92,0.01)] hover:shadow-[0_12px_28px_rgba(115,108,92,0.06)] select-none overflow-hidden"
               >
-                <div className={`w-11 h-11 sm:w-12 sm:h-12 ${colors.bg} ${colors.text} rounded-2xl flex items-center justify-center ${colors.hoverBg} transition-all duration-300 shadow-sm`}>
+                <div className={`w-9 h-9 sm:w-11 sm:h-11 ${colors.bg} ${colors.text} rounded-full flex items-center justify-center ${colors.hoverBg} transition-all duration-300 shadow-sm scale-95 group-hover:scale-100`}>
                   {item.icon}
                 </div>
-                <span className="font-display font-black text-slate-800 text-xs sm:text-sm mt-1.5 transition-colors group-hover:text-emerald-600">
+                <span className="font-display font-black text-slate-800 text-[10px] sm:text-xs mt-0.5 transition-colors group-hover:text-emerald-600 truncate w-full px-0.5 select-none leading-tight">
                   {item.label}
                 </span>
-                <p className="text-[10px] text-slate-400 mt-0.5 font-medium truncate w-full px-1">
+                <p className="hidden xs:block text-[8px] sm:text-[9px] text-slate-400 mt-0 font-medium truncate w-full px-0.5 pointer-events-none select-none">
                   {item.desc}
                 </p>
               </button>

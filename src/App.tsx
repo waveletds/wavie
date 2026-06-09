@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Phone, Database, Lightbulb, Tv, GraduationCap, 
   Wallet, History, Settings, LogOut, ArrowRight, ShieldCheck, Mail, Lock, 
   Check, Sparkles, Building2, User, KeyRound, Languages, ArrowDownLeft, ArrowUpRight,
-  Bell, Sun, Sunrise, Moon, Plane, UserPlus, Loader2
+  Bell, Sun, Sunrise, Moon, Plane, UserPlus, Loader2, Share2
 } from 'lucide-react';
 import { 
   ActiveTab, UserState, Transaction, SavedBeneficiary, Language 
@@ -17,6 +17,7 @@ import { AirtimeAndDataPanel } from './components/AirtimeAndDataPanel';
 import { BillsRechargePanel } from './components/BillsRechargePanel';
 import { EducationPinsPanel } from './components/EducationPinsPanel';
 import { WalletAndBankPanel } from './components/WalletAndBankPanel';
+import { SmmBoosterPanel } from './components/SmmBoosterPanel';
 import { TransactionsList } from './components/TransactionsList';
 import { SettingsConfig } from './components/SettingsConfig';
 import { motion, AnimatePresence } from 'motion/react';
@@ -687,7 +688,7 @@ export default function App() {
     if (!pendingPurchaseParams) return;
     const { type, amount, recipient, description, details } = pendingPurchaseParams;
 
-    // Calculate Cashback margins (MTN/Airtel 2%, Glo/9mobile 3% cashback)
+    // Calculate Cashback margins (MTN/Airtel 2%, Glo/9mobile 3% cashback, SMM 3% cashback)
     let cashbackGained = 0;
     if (type === 'airtime' || type === 'data') {
       const net = details.network as string;
@@ -695,10 +696,12 @@ export default function App() {
       if (matchedTelco) {
         cashbackGained = (amount * matchedTelco.cashbackPercent) / 100;
       }
+    } else if (type === 'smm') {
+      cashbackGained = amount * 0.03;
     }
 
     // Record central transaction
-    const referenceRoot = type === 'airtime' ? 'AIR' : type === 'data' ? 'DAT' : type === 'electricity' ? 'ELC' : type === 'cable' ? 'CAB' : type === 'education' ? 'EDU' : 'WTH';
+    const referenceRoot = type === 'airtime' ? 'AIR' : type === 'data' ? 'DAT' : type === 'electricity' ? 'ELC' : type === 'cable' ? 'CAB' : type === 'education' ? 'EDU' : type === 'smm' ? 'SMM' : 'WTH';
     const randomTxRef = `TN-${referenceRoot}-${Math.floor(10000000 + Math.random() * 89999999)}`;
     const mainTxId = `tx_${Date.now()}`;
 
@@ -911,6 +914,7 @@ export default function App() {
     { id: 'electricity', label: dict.electricity, icon: <Lightbulb className="w-4 h-4" /> },
     { id: 'cable', label: dict.cable, icon: <Tv className="w-4 h-4" /> },
     { id: 'education', label: dict.education, icon: <GraduationCap className="w-4 h-4" /> },
+    { id: 'smm', label: 'SMM Booster', icon: <Share2 className="w-4 h-4" /> },
     { id: 'wallet', label: dict.wallet, icon: <Wallet className="w-4 h-4" /> },
     { id: 'transactions', label: dict.transactions, icon: <History className="w-4 h-4" /> },
     { id: 'settings', label: dict.settings, icon: <Settings className="w-4 h-4" /> },
@@ -1721,6 +1725,14 @@ export default function App() {
 
                   {activeTab === 'education' && (
                     <EducationPinsPanel
+                      user={user}
+                      onTriggerPurchase={handleInterceptPurchase}
+                      addToast={addToast}
+                    />
+                  )}
+
+                  {activeTab === 'smm' && (
+                    <SmmBoosterPanel
                       user={user}
                       onTriggerPurchase={handleInterceptPurchase}
                       addToast={addToast}
