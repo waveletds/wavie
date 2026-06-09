@@ -138,13 +138,13 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           </div>
 
           {/* Deposit / Transfer action buttons with elite transitions */}
-          <div className="flex flex-col sm:flex-row gap-4 mt-8 z-10 pt-4 border-t border-white/10">
+          <div className="grid grid-cols-2 gap-4 mt-8 z-10 pt-4 border-t border-white/10">
             <motion.button
               id="dashboard-deposit-btn"
               onClick={() => onNavigate('wallet')}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="flex-grow py-3 bg-emerald-500 hover:bg-emerald-450 hover:shadow-emerald-500/15 text-slate-950 font-bold rounded-xl text-xs sm:text-sm font-display flex items-center justify-center gap-2.5 transition-all shadow-lg cursor-pointer group"
+              className="py-3 bg-emerald-500 hover:bg-emerald-450 hover:shadow-emerald-500/15 text-slate-950 font-bold rounded-xl text-xs sm:text-sm font-display flex items-center justify-center gap-2.5 transition-all shadow-lg cursor-pointer group"
             >
               <ArrowDownLeft className="w-4 h-4 text-slate-950 transition-transform duration-300 group-hover:translate-y-0.5 group-hover:-translate-x-0.5" />
               Deposit
@@ -154,7 +154,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               onClick={() => onNavigate('wallet')}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="flex-grow py-3 bg-white/5 hover:bg-white/10 border border-white/15 hover:border-white/30 text-white rounded-xl text-xs sm:text-sm font-bold font-display flex items-center justify-center gap-2.5 backdrop-blur-md transition-all cursor-pointer group"
+              className="py-3 bg-white/5 hover:bg-white/10 border border-white/15 hover:border-white/30 text-white rounded-xl text-xs sm:text-sm font-bold font-display flex items-center justify-center gap-2.5 backdrop-blur-md transition-all cursor-pointer group"
             >
               <ArrowUpRight className="w-4 h-4 text-slate-300 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
               Transfer

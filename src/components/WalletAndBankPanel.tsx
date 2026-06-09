@@ -7,6 +7,21 @@ import { motion, AnimatePresence } from 'motion/react';
 import { UserState } from '../types';
 import { MOCK_NAMES } from '../data';
 
+const loadPaystackScript = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if ((window as any).PaystackPop) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://js.paystack.co/v1/inline.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
 interface WalletAndBankPanelProps {
   user: UserState;
   onFundWallet: (amount: number, description: string, paymentMethod?: string, reference?: string) => void;
@@ -124,6 +139,56 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
         setPaystackStep('otp');
       }, 1605);
     }, 1300);
+  };
+
+  const handlePaystackCheckout = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(cardValue) || 0;
+    if (amt < 100 || amt > 100000) {
+      addToast('Card funding values must be between ₦100 and ₦100,000.', 'error');
+      return;
+    }
+
+    setIsProcessingCard(true);
+    addToast('Connecting to Paystack checkout gateway...', 'info');
+
+    const loaded = await loadPaystackScript();
+    if (!loaded) {
+      setIsProcessingCard(false);
+      addToast('Gateway connection error: Could not load Paystack Inline JS script.', 'error');
+      return;
+    }
+
+    const pKey = (import.meta as any).env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_c962bda7bcde1bbf9fd6f801646271a067e2da5b';
+
+    try {
+      const handler = (window as any).PaystackPop.setup({
+        key: pKey,
+        email: user.email,
+        amount: Math.round(amt * 100),
+        currency: 'NGN',
+        ref: `TN-PAY-${Date.now()}-${Math.floor(10000 + Math.random() * 90000)}`,
+        callback: (response: any) => {
+          setIsProcessingCard(false);
+          onFundWallet(
+            amt, 
+            `Card funded +₦${amt.toLocaleString()} (Gateway: Paystack Inline)`, 
+            'paystack', 
+            response.reference
+          );
+          addToast(`Success! ₦${amt.toLocaleString()} securely credited via Paystack.`, 'success');
+        },
+        onClose: () => {
+          setIsProcessingCard(false);
+          addToast('Paystack payment checkout cancelled.', 'info');
+        }
+      });
+      handler.openIframe();
+    } catch (err: any) {
+      setIsProcessingCard(false);
+      console.error('Paystack failed to load:', err);
+      addToast('Unexpected error during Paystack Popup initialization.', 'error');
+    }
   };
 
   const handlePaystackOtpSubmit = (e: React.FormEvent) => {
@@ -482,24 +547,48 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
                   </div>
                 </div>
 
-                <button
-                  id="card-fund-submit-btn"
-                  type="submit"
-                  disabled={isProcessingCard}
-                  className="w-full py-3.5 mt-2 bg-slate-900 border border-slate-950 hover:bg-black text-white rounded-xl text-xs font-bold font-display transition-all active:scale-95 disabled:bg-slate-350 shadow shadow-md hover:shadow-lg flex items-center justify-center gap-1.5"
-                >
-                  {isProcessingCard ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin text-white" />
-                      Authenticating active gateway payload...
-                    </>
-                  ) : (
-                    <>
-                      <LockIcon className="w-4 h-4 text-emerald-400 animate-pulse" />
-                      Charge ₦{(parseFloat(cardValue) || 0).toLocaleString()} Securing Payment (3D Sandbox)
-                    </>
-                  )}
-                </button>
+                <div className="flex flex-col gap-3 mt-4">
+                  {/* Real Paystack Popup Button */}
+                  <button
+                    id="real-paystack-popup-btn"
+                    type="button"
+                    onClick={handlePaystackCheckout}
+                    disabled={isProcessingCard}
+                    className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-450 text-slate-950 rounded-xl text-xs font-bold font-display uppercase tracking-wider transition-all active:scale-95 disabled:opacity-50 shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isProcessingCard ? (
+                      <>
+                        <Loader2 className="w-4.5 h-4.5 animate-spin text-slate-950" />
+                        Connecting to Paystack gateway...
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="w-4.5 h-4.5 text-slate-950 animate-pulse" />
+                        Pay with Paystack (Real Popup Gateway)
+                      </>
+                    )}
+                  </button>
+
+                  {/* Manual Sim Button */}
+                  <button
+                    id="card-fund-submit-btn"
+                    type="submit"
+                    disabled={isProcessingCard}
+                    className="w-full py-3.5 bg-slate-900 border border-slate-950 hover:bg-black text-white rounded-xl text-xs font-bold font-display transition-all active:scale-95 disabled:bg-slate-350 shadow shadow-md hover:shadow-lg flex items-center justify-center gap-1.5"
+                  >
+                    {isProcessingCard ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        Authenticating card payload...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4 text-emerald-400 animate-pulse" />
+                        Simulate Card Charge of ₦{(parseFloat(cardValue) || 0).toLocaleString()} (Offline)
+                      </>
+                    )}
+                  </button>
+                </div>
               </form>
             )}
 

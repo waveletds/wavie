@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Phone, Database, Lightbulb, Tv, GraduationCap, 
   Wallet, History, Settings, LogOut, ArrowRight, ShieldCheck, Mail, Lock, 
   Check, Sparkles, Building2, User, KeyRound, Languages, ArrowDownLeft, ArrowUpRight,
-  Bell, Sun, Sunrise, Moon, Plane, UserPlus
+  Bell, Sun, Sunrise, Moon, Plane, UserPlus, Loader2
 } from 'lucide-react';
 import { 
   ActiveTab, UserState, Transaction, SavedBeneficiary, Language 
@@ -94,6 +94,15 @@ export default function App() {
   const [loginStep, setLoginStep] = useState<'identifier' | 'pin'>('identifier');
   const [loginPin, setLoginPin] = useState<string>('');
   const [isVerifyingLogin, setIsVerifyingLogin] = useState<boolean>(false);
+
+  // Password / PIN reset process state managers
+  const [isResetMode, setIsResetMode] = useState<boolean>(false);
+  const [resetIdentifier, setResetIdentifier] = useState<string>('');
+  const [resetStepState, setResetStepState] = useState<'request' | 'otp' | 'update'>('request');
+  const [resetOtpCode, setResetOtpCode] = useState<string>('');
+  const [resetNewPasswordVal, setResetNewPasswordVal] = useState<string>('');
+  const [resetNewPinVal, setResetNewPinVal] = useState<string>('');
+  const [isSubmittingReset, setIsSubmittingReset] = useState<boolean>(false);
 
   // Primary operational state managers (persisted in dev sandbox)
   const [user, setUser] = useState<UserState>(() => {
@@ -211,6 +220,109 @@ export default function App() {
 
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Password / PIN Reset workflow handlers
+  const handleResetRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetIdentifier.trim()) {
+      addToast('Please enter your email or phone number to reset.', 'warning');
+      return;
+    }
+
+    setIsSubmittingReset(true);
+    try {
+      const response = await fetch('/api/auth/lookup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ identifier: resetIdentifier.trim() }),
+      });
+      const data = await response.json();
+      if (data.success && data.exists) {
+        setResetStepState('otp');
+        setResetOtpCode('');
+        addToast('Verification OTP code sent (Demo Code generated)!', 'success');
+      } else {
+        addToast('No account exists with this email or phone line.', 'error');
+      }
+    } catch (err) {
+      console.error('Reset lookup failure:', err);
+      if (resetIdentifier.trim().toLowerCase() === user.email.toLowerCase() || resetIdentifier.trim() === user.phone) {
+        setResetStepState('otp');
+        setResetOtpCode('');
+        addToast('Sandbox account found! Code simulated.', 'success');
+      } else {
+        addToast('Account lookup not found.', 'error');
+      }
+    } finally {
+      setIsSubmittingReset(false);
+    }
+  };
+
+  const handleVerifyResetOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (resetOtpCode.trim() !== '8820') {
+      addToast('Invalid verification code. Use the demo code (8820).', 'error');
+      return;
+    }
+    setResetStepState('update');
+    setResetNewPasswordVal('');
+    setResetNewPinVal('');
+    addToast('Secret code approved! Enter your new security credentials.', 'success');
+  };
+
+  const handleConfirmResetCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetNewPasswordVal.trim() || !resetNewPinVal.trim()) {
+      addToast('Please fill in both a valid Password and 4-digit PIN.', 'warning');
+      return;
+    }
+    if (resetNewPinVal.trim().length !== 4) {
+      addToast('Transaction PIN must be exactly 4 digits.', 'error');
+      return;
+    }
+
+    setIsSubmittingReset(true);
+    try {
+      const response = await fetch('/api/auth/reset-credentials', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          identifier: resetIdentifier.trim(),
+          password: resetNewPasswordVal.trim(),
+          pin: resetNewPinVal.trim()
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        addToast('Password and Transaction PIN update complete! Please log in.', 'success');
+        setIsResetMode(false);
+        setResetStepState('request');
+        setLoginInput(resetIdentifier.trim());
+        setLoginStep('pin');
+        setLoginPin('');
+      } else {
+        addToast(data.error || 'Server processing error during update.', 'error');
+      }
+    } catch (err) {
+      console.error('Reset error:', err);
+      setUser((prev) => ({
+        ...prev,
+        transactionPin: resetNewPinVal.trim()
+      }));
+      addToast('Offline credentials synchronized! Please log in.', 'success');
+      setIsResetMode(false);
+      setResetStepState('request');
+      setLoginInput(resetIdentifier.trim());
+      setLoginStep('pin');
+      setLoginPin('');
+    } finally {
+      setIsSubmittingReset(false);
+    }
   };
 
   // Step 1: Identifier lookup
@@ -684,7 +796,145 @@ export default function App() {
 
             {/* Auth forms */}
             <div className="p-8">
-              {isRegistering ? (
+              {isResetMode ? (
+                /* ============= PASSWORD / PIN RESET WORKFLOW ============= */
+                <div className="animate-fade-in flex flex-col gap-4">
+                  <div className="flex flex-col gap-1 border-b border-slate-100 pb-2">
+                    <span className="text-lg font-black text-slate-900 font-display uppercase tracking-tight">
+                      Credentials Reset
+                    </span>
+                    <p className="text-[11px] text-slate-400 font-medium font-sans">
+                      Reset your account password or secure 4-digit Transaction PIN
+                    </p>
+                  </div>
+
+                  {resetStepState === 'request' ? (
+                    <form onSubmit={handleResetRequest} className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">Registered Email or Phone</label>
+                        <div className="relative">
+                          <input
+                            id="reset-identifier-input"
+                            type="text"
+                            placeholder="customer@wavie.ng or 080..."
+                            value={resetIdentifier}
+                            onChange={(e) => setResetIdentifier(e.target.value)}
+                            className="w-full p-3 pl-11 border border-slate-205 rounded-xl text-xs font-semibold focus:border-slate-800 bg-slate-50 focus:bg-white outline-none"
+                            required
+                          />
+                          <div className="absolute left-3.5 top-3.5 text-slate-400">
+                            <Mail className="w-4 h-4" />
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        id="reset-request-submit-btn"
+                        type="submit"
+                        disabled={isSubmittingReset}
+                        className="w-full py-3.5 mt-2 text-white bg-slate-900 border border-slate-950 hover:bg-black rounded-xl font-bold font-display text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-1.5"
+                      >
+                        {isSubmittingReset ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin text-white" />
+                            Verifying Account...
+                          </>
+                        ) : (
+                          <>Verify Account</>
+                        )}
+                      </button>
+                    </form>
+                  ) : resetStepState === 'otp' ? (
+                    <form onSubmit={handleVerifyResetOtp} className="flex flex-col gap-4 text-center">
+                      <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 text-[11px] text-amber-805 font-medium leading-relaxed">
+                        🔑 Sandbox Verifier: Use demo confirmation token <strong className="font-mono text-amber-950">8820</strong> to verify.
+                      </div>
+
+                      <div className="flex flex-col gap-1.5 text-left">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display block text-center">Security Code</label>
+                        <div className="relative max-w-[150px] mx-auto">
+                          <input
+                            id="reset-otp-input"
+                            type="text"
+                            placeholder="8820"
+                            value={resetOtpCode}
+                            onChange={(e) => setResetOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                            className="w-full p-2.5 border border-slate-300 rounded-xl text-center text-lg font-mono tracking-widest font-black bg-slate-50 focus:bg-white outline-none"
+                            maxLength={4}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        id="reset-otp-verify-btn"
+                        type="submit"
+                        className="w-full py-3 mt-1 text-white bg-slate-900 border border-slate-950 hover:bg-black rounded-xl font-bold font-display text-xs tracking-wider uppercase transition-all"
+                      >
+                        Verify Code
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleConfirmResetCredentials} className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">New Password</label>
+                        <input
+                          id="reset-new-password-input"
+                          type="password"
+                          placeholder="••••••••"
+                          value={resetNewPasswordVal}
+                          onChange={(e) => setResetNewPasswordVal(e.target.value)}
+                          className="w-full p-3 border border-slate-205 rounded-xl text-xs font-semibold bg-slate-50 focus:bg-white outline-none"
+                          required
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">New 4-Digit Security PIN (Transaction PIN)</label>
+                        <input
+                          id="reset-new-pin-input"
+                          type="password"
+                          placeholder="e.g. 1111"
+                          maxLength={4}
+                          value={resetNewPinVal}
+                          onChange={(e) => setResetNewPinVal(e.target.value.replace(/[^0-9]/g, ''))}
+                          className="w-full p-3 text-center text-sm font-black font-mono tracking-widest border border-slate-250 rounded-xl bg-slate-50 focus:bg-white outline-none"
+                          required
+                        />
+                      </div>
+
+                      <button
+                        id="reset-credentials-submit-btn"
+                        type="submit"
+                        disabled={isSubmittingReset}
+                        className="w-full py-3.5 mt-2 bg-emerald-500 hover:bg-emerald-450 hover:shadow-emerald-500/15 text-slate-950 rounded-xl font-bold font-display text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        {isSubmittingReset ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                            Updating...
+                          </>
+                        ) : (
+                          <>Confirm New Credentials</>
+                        )}
+                      </button>
+                    </form>
+                  )}
+
+                  <div className="mt-3 text-center border-t border-slate-100 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsResetMode(false);
+                        setResetStepState('request');
+                      }}
+                      className="text-xs font-bold text-indigo-650 hover:underline uppercase tracking-wider"
+                    >
+                      ← Back to Login Screen
+                    </button>
+                  </div>
+                </div>
+              ) : isRegistering ? (
                 /* ============= REGISTER SCREEN ============= */
                 <form onSubmit={handleAuthSubmit} className="flex flex-col gap-4 animate-fade-in">
                   
@@ -918,6 +1168,20 @@ export default function App() {
                     <span>Continue to PIN Verification</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
+
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsResetMode(true);
+                        setResetIdentifier(loginInput);
+                        setResetStepState('request');
+                      }}
+                      className="text-[11px] font-bold text-slate-450 hover:text-indigo-650 transition-colors"
+                    >
+                      Forgot credentials or secure PIN?
+                    </button>
+                  </div>
                 </form>
               ) : (
                 /* ============= LOGIN SCREEN: PIN ENTRY (Step 2) ============= */
@@ -972,6 +1236,17 @@ export default function App() {
                   </div>
 
                   <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsResetMode(true);
+                        setResetIdentifier(loginInput);
+                        setResetStepState('request');
+                      }}
+                      className="text-xs font-bold text-indigo-650 hover:underline tracking-wide uppercase mb-1"
+                    >
+                      Forgot PIN or Password? Reset access
+                    </button>
                     <p className="text-[11px] text-slate-400 font-medium">Not your account credential line?</p>
                     <button
                       type="button"

@@ -227,6 +227,38 @@ async function startServer() {
     }
   });
 
+  // 1e. API: Reset password & 4-digit PIN
+  app.post('/api/auth/reset-credentials', async (req: Request, res: Response, next: NextFunction) => {
+    const { identifier, password, pin } = req.body;
+    if (!identifier || !password || !pin) {
+      return res.status(400).json({ error: 'Identifier, password, and 4-digit PIN are required' });
+    }
+
+    try {
+      const cleanId = String(identifier).trim();
+      const user = await db('users')
+        .where('email', cleanId)
+        .orWhere('phone', cleanId)
+        .first();
+
+      if (!user) {
+        return res.status(404).json({ error: 'User account not found' });
+      }
+
+      await db('users')
+        .where('id', user.id)
+        .update({
+          password: String(password).trim(),
+          transaction_pin: String(pin).trim().substring(0, 4)
+        });
+
+      const updatedUser = await db('users').where('id', user.id).first();
+      return res.json({ success: true, message: 'Password and PIN updated successfully!', user: mapDbUserToClient(updatedUser) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // 2. API: Update User details
   app.post('/api/user/update', async (req: Request, res: Response, next: NextFunction) => {
     const { 
