@@ -173,6 +173,75 @@ export default function App() {
     localStorage.setItem('topup_bens', JSON.stringify(beneficiaries));
   }, [beneficiaries]);
 
+  // Hash Routing and Referral Deep-Linking Sync Engine
+  useEffect(() => {
+    const handleHashAndParamsSync = () => {
+      // 1. Check for Referral Code in URL parameters (Search query or Hash query)
+      const searchParams = new URLSearchParams(window.location.search);
+      let refCode = searchParams.get('ref') || '';
+      
+      // Also check hash for parameter
+      const rawHash = window.location.hash;
+      if (rawHash.includes('?')) {
+        const hashQueryPart = rawHash.split('?')[1];
+        const hashParams = new URLSearchParams(hashQueryPart);
+        if (hashParams.get('ref')) {
+          refCode = hashParams.get('ref') || '';
+        }
+      }
+
+      if (refCode) {
+        const cleanRef = refCode.trim().toUpperCase();
+        setRegReferral(cleanRef);
+        if (!isAuthenticated) {
+          setIsRegistering(true);
+          const shownRefKey = `ref_toast_shown_${cleanRef}`;
+          if (!sessionStorage.getItem(shownRefKey)) {
+            sessionStorage.setItem(shownRefKey, 'true');
+            setTimeout(() => {
+              addToast(`Referral Invitation link applied! Code: ${cleanRef} is active. Sign up to get your ₦100 welcome reward!`, 'success');
+            }, 800);
+          }
+        }
+      }
+
+      // 2. Tab synchronizer
+      if (isAuthenticated) {
+        let parsedTab = rawHash.replace('#/', '').replace('#', '').split('?')[0] as any;
+        const validTabs: ActiveTab[] = [
+          'dashboard', 'airtime', 'data', 'electricity', 
+          'cable', 'education', 'wallet', 'transactions', 'settings'
+        ];
+        
+        if (parsedTab && validTabs.includes(parsedTab)) {
+          if (activeTab !== parsedTab) {
+            setActiveTab(parsedTab);
+          }
+        } else if (!parsedTab || parsedTab === '/') {
+          // Sync default state behavior
+          window.location.hash = '#/dashboard';
+        }
+      }
+    };
+
+    handleHashAndParamsSync();
+    window.addEventListener('hashchange', handleHashAndParamsSync);
+    return () => {
+      window.removeEventListener('hashchange', handleHashAndParamsSync);
+    };
+  }, [isAuthenticated]);
+
+  // Sync activeTab state changes to persistent URL hash representing specific sections & services
+  useEffect(() => {
+    if (isAuthenticated) {
+      const currentHash = window.location.hash.replace('#/', '').replace('#', '').split('?')[0];
+      if (currentHash !== activeTab) {
+        const queryPart = window.location.hash.includes('?') ? '?' + window.location.hash.split('?')[1] : '';
+        window.location.hash = `#/${activeTab}${queryPart}`;
+      }
+    }
+  }, [activeTab, isAuthenticated]);
+
   // Synchronize state with backend SQLite SQL Database
   useEffect(() => {
     if (isAuthenticated && user.email) {

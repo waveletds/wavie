@@ -53,11 +53,21 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
 
   const greeting = getGreetingTuple();
 
+  const [copiedLink, setCopiedLink] = useState<boolean>(false);
+
   const handleCopyReferral = () => {
     navigator.clipboard.writeText(user.referralCode);
     setCopiedCode(true);
     addToast('Referral code copied successfully! Share to earn bonus.', 'success');
     setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleCopyInviteLink = () => {
+    const link = `${window.location.origin}${window.location.pathname}?ref=${user.referralCode}`;
+    navigator.clipboard.writeText(link);
+    setCopiedLink(true);
+    addToast('Special landing invite link copied! Share this link for auto-filled login commissions.', 'success');
+    setTimeout(() => setCopiedLink(false), 2000);
   };
 
   const serviceIcons = {
@@ -316,26 +326,42 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
             </p>
           </div>
 
-          <div className="mt-8 z-10">
-            <span className="text-[10px] font-bold text-slate-400 tracking-wider block uppercase mb-1.5">
-              YOUR PERSONAL INVITE CODE
-            </span>
-            <div className="flex items-center gap-1.5 bg-white/10 border border-white/10 p-2.5 rounded-xl backdrop-blur-md">
-              <span className="font-mono font-bold text-sm tracking-widest text-emerald-300 select-all flex-grow p-1">
-                {user.referralCode}
+          <div className="mt-8 z-10 flex flex-col gap-3">
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 tracking-wider block uppercase mb-1.5">
+                YOUR PERSONAL INVITE CODE
+              </span>
+              <div className="flex items-center gap-1.5 bg-white/10 border border-white/10 p-2.5 rounded-xl backdrop-blur-md">
+                <span className="font-mono font-bold text-sm tracking-widest text-emerald-300 select-all flex-grow p-1">
+                  {user.referralCode}
+                </span>
+                <button
+                  id="copy-referral-code-btn"
+                  onClick={handleCopyReferral}
+                  className="p-1.5 px-3 bg-emerald-500 hover:bg-emerald-450 text-slate-900 rounded-lg text-xs font-bold font-display flex items-center gap-1 transition-all active:scale-95 whitespace-nowrap cursor-pointer shadow-sm"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  {copiedCode ? 'Copied!' : 'Copy Code'}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 tracking-wider block uppercase mb-1.5">
+                SHARE SPECIAL LANDING LINK
               </span>
               <button
-                id="copy-referral-code-btn"
-                onClick={handleCopyReferral}
-                className="p-1 px-2.5 bg-emerald-500 text-slate-900 rounded-lg text-xs font-bold font-display hover:bg-emerald-450 flex items-center gap-1 transition-colors active:scale-95 whitespace-nowrap cursor-pointer"
+                id="copy-special-referral-link-btn"
+                onClick={handleCopyInviteLink}
+                className="w-full py-2.5 bg-white/10 border border-white/10 hover:bg-white/15 text-white hover:text-emerald-300 rounded-xl text-xs font-bold font-display transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer backdrop-blur-md"
               >
-                <Copy className="w-3 h-3" />
-                {copiedCode ? 'Copied' : 'Copy'}
+                <Copy className="w-3.5 h-3.5" />
+                {copiedLink ? 'Copied Invitation Link!' : 'Copy Direct Share Link'}
               </button>
             </div>
             
             <p className="text-[10px] text-slate-400 mt-2 text-center italic">
-              ⚡ {lang === 'pidgin' ? 'Share coded, both of you collect ₦505 each!' : 'Both you and your referred friend get credited instantly.'}
+              ⚡ {lang === 'pidgin' ? 'Share coded or link, both of you collect ₦100 welcome activation reward!' : 'Both you and your referred friend get credited instantly upon registration.'}
             </p>
           </div>
         </div>
