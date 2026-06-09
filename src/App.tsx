@@ -74,7 +74,9 @@ export default function App() {
   const dict = lang === 'pidgin' ? PIDGIN_DICT : ENGLISH_DICT;
 
   // Authentication sandbox states
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('topup_auth') === 'true';
+  });
   const [authEmail, setAuthEmail] = useState<string>('');
   const [authPhone, setAuthPhone] = useState<string>('');
   const [authPassword, setAuthPassword] = useState<string>('');
@@ -172,6 +174,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('topup_bens', JSON.stringify(beneficiaries));
   }, [beneficiaries]);
+
+  useEffect(() => {
+    localStorage.setItem('topup_auth', String(isAuthenticated));
+  }, [isAuthenticated]);
 
   // Hash Routing and Referral Deep-Linking Sync Engine
   useEffect(() => {
