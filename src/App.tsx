@@ -1616,9 +1616,9 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Right side status indicator */}
-                  <div className="hidden sm:flex items-center gap-2">
-                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest font-mono select-none">
+                  {/* Right side status indicator & Sign out action */}
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="hidden min-[400px]:inline text-[10px] font-extrabold text-slate-400 uppercase tracking-widest font-mono select-none">
                       Wavie Portal ⚡
                     </span>
                     <button
@@ -1627,10 +1627,10 @@ export default function App() {
                         setIsAuthenticated(false);
                         addToast('Logged out.', 'info');
                       }}
-                      className="p-1.5 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-500 rounded-full transition-all active:scale-95 border border-slate-200 cursor-pointer"
+                      className="p-1.5 sm:p-2 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-650 rounded-full transition-all active:scale-95 border border-slate-200 cursor-pointer flex items-center justify-center shrink-0"
                       title="Sign Out"
                     >
-                      <LogOut className="w-3.5 h-3.5" />
+                      <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600 hover:text-red-600" />
                     </button>
                   </div>
                </div>
@@ -1762,6 +1762,10 @@ export default function App() {
                       lang={lang}
                       onChangeLang={(l) => setLang(l)}
                       addToast={addToast}
+                      onLogout={() => {
+                        setIsAuthenticated(false);
+                        addToast('Securely logged out.', 'info');
+                      }}
                     />
                   )}
                 </motion.div>

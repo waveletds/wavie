@@ -3,7 +3,7 @@ import {
   Languages, Eye, EyeOff, ShieldCheck, Mail, Phone, 
   MapPin, ShieldPlus, ChevronRight, User, Key, KeyRound, Sparkles,
   Fingerprint, ScanFace, Cpu, RefreshCw, Loader2, Activity,
-  GitBranch, GitCommit, GitPullRequest, Download, AlertTriangle, CheckCircle, Terminal
+  GitBranch, GitCommit, GitPullRequest, Download, AlertTriangle, CheckCircle, Terminal, LogOut
 } from 'lucide-react';
 import { UserState, Language, KYCLevel } from '../types';
 
@@ -13,6 +13,7 @@ interface SettingsConfigProps {
   lang: Language;
   onChangeLang: (newLang: Language) => void;
   addToast: (msg: string, type: 'success' | 'error' | 'info' | 'warning') => void;
+  onLogout?: () => void;
 }
 
 export const SettingsConfig: React.FC<SettingsConfigProps> = ({
@@ -21,6 +22,7 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
   lang,
   onChangeLang,
   addToast,
+  onLogout,
 }) => {
   // Sagecloud API hub integration configuration states
   const [sagecloudApiKey, setSagecloudApiKey] = useState<string>(() => {
@@ -534,6 +536,27 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
             Save Account Details
           </button>
         </form>
+
+        {/* Secure session logout section */}
+        {onLogout && (
+          <div className="border-t border-slate-100 pt-5 flex flex-col gap-3" id="settings-session-logout-area">
+            <div>
+              <h4 className="font-display font-black text-slate-800 text-xs uppercase tracking-wider">
+                Active Session Settings
+              </h4>
+              <p className="text-[10px] text-slate-400 font-medium">To protect your terminal and wallet credentials, disconnect active browser contexts immediately.</p>
+            </div>
+            <button
+              id="settings-logout-btn"
+              type="button"
+              onClick={onLogout}
+              className="w-full py-2.5 text-xs font-bold font-display text-red-700 bg-red-50 hover:bg-red-100/85 border border-red-100 rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            >
+              <LogOut className="w-4 h-4 text-red-600" />
+              Sign Out Securely
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Transaction security settings */}
