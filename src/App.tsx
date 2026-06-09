@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Phone, Database, Lightbulb, Tv, GraduationCap, 
   Wallet, History, Settings, LogOut, ArrowRight, ShieldCheck, Mail, Lock, 
   Check, Sparkles, Building2, User, KeyRound, Languages, ArrowDownLeft, ArrowUpRight,
-  Bell, Sun, Sunrise, Moon
+  Bell, Sun, Sunrise, Moon, Plane, UserPlus
 } from 'lucide-react';
 import { 
   ActiveTab, UserState, Transaction, SavedBeneficiary, Language 
@@ -82,6 +82,11 @@ export default function App() {
   const [authMode, setAuthMode] = useState<'password' | 'otp'>('password');
   const [isRegistering, setIsRegistering] = useState<boolean>(false);
   const [regName, setRegName] = useState<string>('');
+  const [regFirstName, setRegFirstName] = useState<string>('');
+  const [regLastName, setRegLastName] = useState<string>('');
+  const [regPassword, setRegPassword] = useState<string>('');
+  const [regPin, setRegPin] = useState<string>('1111');
+  const [regReferral, setRegReferral] = useState<string>('');
 
   // New secure 4-digit login flow states
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
@@ -315,18 +320,28 @@ export default function App() {
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isRegistering) {
-      if (!regName.trim() || !authEmail.trim() || !authPhone.trim()) {
-        addToast('Please complete all registration parameters.', 'error');
+      if (!regFirstName.trim() || !regLastName.trim() || !authEmail.trim() || !authPhone.trim() || !regPassword.trim() || !regPin.trim()) {
+        addToast('Please complete all personal and security registration details.', 'error');
         return;
       }
+      if (regPin.trim().length !== 4) {
+        addToast('Transaction PIN must be exactly 4 digits.', 'error');
+        return;
+      }
+
+      const compositeFullName = `${regFirstName.trim()} ${regLastName.trim()}`;
+
       try {
         const res = await fetch('/api/user/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: authEmail.trim(),
-            name: regName.trim(),
+            name: compositeFullName,
             phone: authPhone.trim(),
+            password: regPassword.trim(),
+            transactionPin: regPin.trim(),
+            referralCode: regReferral.trim(),
           }),
         });
         const data = await res.json();
@@ -334,7 +349,13 @@ export default function App() {
           setUser(data.user);
           setIsRegistering(false);
           setIsAuthenticated(true);
-          addToast('Profile account registered! ₦100 welcome bonus card active.', 'success');
+          addToast(`Account for ${data.user.name} created successfully! ₦100 welcome credit added.`, 'success');
+          // Reset fields
+          setRegFirstName('');
+          setRegLastName('');
+          setRegPassword('');
+          setRegPin('1111');
+          setRegReferral('');
         } else {
           addToast(data.error || 'Server registration failed. Try again.', 'error');
         }
@@ -342,16 +363,24 @@ export default function App() {
         console.error('Registration failed, acting on client simulation:', err);
         setUser((prev) => ({
           ...prev,
-          name: regName.trim(),
+          name: compositeFullName,
           email: authEmail.trim(),
-          phone: authPhone,
+          phone: authPhone.trim(),
           walletBalance: 100,
           referredCount: 0,
           referralEarnings: 0,
+          transactionPin: regPin.trim(),
+          isPinSet: true,
         }));
         setIsRegistering(false);
         setIsAuthenticated(true);
-        addToast('Profile account registered! ₦100 welcome bonus card active.', 'success');
+        addToast(`Welcome ${compositeFullName}! Offline mock registration active with ₦100 credit.`, 'success');
+        // Reset fields
+        setRegFirstName('');
+        setRegLastName('');
+        setRegPassword('');
+        setRegPin('1111');
+        setRegReferral('');
       }
     }
   };
@@ -657,47 +686,68 @@ export default function App() {
             <div className="p-8">
               {isRegistering ? (
                 /* ============= REGISTER SCREEN ============= */
-                <form onSubmit={handleAuthSubmit} className="flex flex-col gap-5">
-                  <div className="flex items-center justify-between border-b border-slate-50 pb-2">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display">
-                      Register account
+                <form onSubmit={handleAuthSubmit} className="flex flex-col gap-4 animate-fade-in">
+                  
+                  {/* Title and Jet Icon Header Section */}
+                  <div className="flex flex-col gap-1 border-b border-slate-100 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-black text-slate-900 font-display uppercase tracking-tight">
+                        create your account
+                      </span>
+                      <Plane className="w-5 h-5 text-indigo-650 rotate-45 transform animate-bob cursor-pointer" />
+                    </div>
+                    <p className="text-[11px] text-slate-550 font-medium font-sans italic leading-none">
+                      ( fill in your details below to get sttrte for free )
+                    </p>
+                  </div>
+
+                  {/* Division Header label */}
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="h-[1px] bg-slate-100 flex-grow" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-display whitespace-nowrap">
+                      personal info
                     </span>
+                    <div className="h-[1px] bg-slate-100 flex-grow" />
                   </div>
 
-                  <div className="flex flex-col gap-1.5" id="reg-name-field">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">Full Name</label>
-                    <div className="relative">
-                      <input
-                        id="register-name-input"
-                        type="text"
-                        placeholder="e.g. Olawale Joseph"
-                        value={regName}
-                        onChange={(e) => setRegName(e.target.value)}
-                        className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-xs font-semibold focus:border-slate-800 bg-slate-50 focus:bg-white outline-none"
-                        required
-                      />
-                      <User className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                  {/* First Name & Last Name Input Row */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1" id="reg-firstname-field">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-display">First Name</label>
+                      <div className="relative">
+                        <input
+                          id="register-firstname-input"
+                          type="text"
+                          placeholder="Olawale"
+                          value={regFirstName}
+                          onChange={(e) => setRegFirstName(e.target.value)}
+                          className="w-full p-2.5 pl-8 border border-slate-200 rounded-xl text-xs font-semibold focus:border-slate-800 bg-slate-50 focus:bg-white outline-none"
+                          required
+                        />
+                        <User className="absolute left-2.5 top-3 w-3.5 h-3.5 text-slate-400" />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1" id="reg-lastname-field">
+                      <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-display">Last Name</label>
+                      <div className="relative">
+                        <input
+                          id="register-lastname-input"
+                          type="text"
+                          placeholder="Joseph"
+                          value={regLastName}
+                          onChange={(e) => setRegLastName(e.target.value)}
+                          className="w-full p-2.5 pl-8 border border-slate-200 rounded-xl text-xs font-semibold focus:border-slate-800 bg-slate-50 focus:bg-white outline-none"
+                          required
+                        />
+                        <User className="absolute left-2.5 top-3 w-3.5 h-3.5 text-slate-400" />
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-1.5" id="reg-email-field">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">Email Address</label>
-                    <div className="relative">
-                      <input
-                        id="register-email-input"
-                        type="email"
-                        placeholder="customer@wavie.ng"
-                        value={authEmail}
-                        onChange={(e) => setAuthEmail(e.target.value)}
-                        className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-xs font-semibold focus:border-slate-800 bg-slate-50 focus:bg-white outline-none"
-                        required
-                      />
-                      <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5" id="reg-phone-field">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display">Mobile Phone Line</label>
+                  {/* Mobile Phone Input Area */}
+                  <div className="flex flex-col gap-1" id="reg-phone-field">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-display">Phone Number</label>
                     <div className="relative">
                       <input
                         id="register-phone-input"
@@ -705,24 +755,93 @@ export default function App() {
                         placeholder="e.g. 08034567890"
                         value={authPhone}
                         onChange={(e) => setAuthPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                        className="w-full p-3 pl-10 border border-slate-205 rounded-xl text-xs font-semibold tracking-widest font-mono bg-slate-50 focus:bg-white outline-none"
+                        className="w-full p-2.5 pl-8 border border-slate-200 rounded-xl text-xs font-semibold tracking-wider font-mono bg-slate-50 focus:bg-white outline-none"
                         maxLength={11}
                         required
                       />
-                      <Phone className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                      <Phone className="absolute left-2.5 top-3 w-3.5 h-3.5 text-slate-400" />
                     </div>
                   </div>
 
-                  <div className="text-[11px] text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-dashed border-slate-150 leading-relaxed">
-                    🌟 <strong>Default PIN Access Code:</strong> After registering your account, your secure login PIN will default to <strong>1111</strong>. You can change this anytime in Profile settings.
+                  {/* Email Input Field */}
+                  <div className="flex flex-col gap-1" id="reg-email-field">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-display">Email</label>
+                    <div className="relative">
+                      <input
+                        id="register-email-input"
+                        type="email"
+                        placeholder="customer@wavie.ng"
+                        value={authEmail}
+                        onChange={(e) => setAuthEmail(e.target.value)}
+                        className="w-full p-2.5 pl-8 border border-slate-200 rounded-xl text-xs font-semibold focus:border-slate-800 bg-slate-50 focus:bg-white outline-none"
+                        required
+                      />
+                      <Mail className="absolute left-2.5 top-3 w-3.5 h-3.5 text-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* Password Input Field */}
+                  <div className="flex flex-col gap-1" id="reg-password-field">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-display">Password</label>
+                    <div className="relative">
+                      <input
+                        id="register-password-input"
+                        type="password"
+                        placeholder="••••••••••••"
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        className="w-full p-2.5 pl-8 border border-slate-200 rounded-xl text-xs font-semibold focus:border-slate-800 bg-slate-50 focus:bg-white outline-none"
+                        required
+                      />
+                      <Lock className="absolute left-2.5 top-3 w-3.5 h-3.5 text-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* 4 Digit Transaction PIN */}
+                  <div className="flex flex-col gap-1" id="reg-pin-field">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-display">4 Digit Transaction PIN (ATM Access)</label>
+                    <div className="relative">
+                      <input
+                        id="register-pin-input"
+                        type="password"
+                        placeholder="e.g. 1111"
+                        value={regPin}
+                        onChange={(e) => setRegPin(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+                        className="w-full p-2.5 pl-8 border border-slate-200 rounded-xl text-center text-sm font-bold tracking-widest font-mono bg-slate-50 focus:bg-white outline-none"
+                        maxLength={4}
+                        required
+                      />
+                      <KeyRound className="absolute left-2.5 top-3 w-3.5 h-3.5 text-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* Referral Code (Optional Field) */}
+                  <div className="flex flex-col gap-1" id="reg-referral-field">
+                    <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider font-display">Referral Code (Optional)</label>
+                    <div className="relative">
+                      <input
+                        id="register-referral-input"
+                        type="text"
+                        placeholder="e.g. TOPUP-9NGA-77"
+                        value={regReferral}
+                        onChange={(e) => setRegReferral(e.target.value.toUpperCase())}
+                        className="w-full p-2.5 pl-8 border border-slate-200 rounded-xl text-xs font-semibold font-mono bg-slate-50 focus:bg-white outline-none"
+                      />
+                      <Sparkles className="absolute left-2.5 top-3 w-3.5 h-3.5 text-slate-400" />
+                    </div>
+                  </div>
+
+                  {/* Custom welcome bonus indicator */}
+                  <div className="text-[10px] text-indigo-700 bg-indigo-50/50 p-2 rounded-xl border border-indigo-100 leading-normal flex items-center gap-1.5 justify-center">
+                    💖 <span>Get <strong>₦100</strong> instantly in your newly activated account!</span>
                   </div>
 
                   <button
                     id="auth-submit-btn"
                     type="submit"
-                    className="w-full py-3.5 mt-2 text-white bg-slate-900 border border-slate-950 hover:bg-black rounded-xl font-bold font-display text-sm hover:shadow-md transition-all active:scale-95"
+                    className="w-full py-3 mt-1 text-white bg-slate-900 border border-slate-950 hover:bg-black rounded-xl font-bold font-display text-xs tracking-wider uppercase hover:shadow-md transition-all active:scale-95"
                   >
-                    Complete Registration & Login
+                    Create Account & Login
                   </button>
                 </form>
               ) : loginStep === 'identifier' ? (

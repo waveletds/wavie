@@ -103,37 +103,61 @@ async function startServer() {
 
   // 1b. API: Register Account with specific details
   app.post('/api/user/register', async (req: Request, res: Response, next: NextFunction) => {
-    const { email, name, phone } = req.body;
+    const { email, name, phone, password, transactionPin, referralCode } = req.body;
     if (!email || !name || !phone) {
       return res.status(400).json({ error: 'Email, name, and phone parameters are required for registration' });
     }
 
     try {
-      let user = await db('users').where({ email: String(email) }).first();
+      let user = await db('users').where({ email: String(email).trim() }).first();
       
+      const cleanPin = String(transactionPin || '1111').trim().substring(0, 4);
+      const cleanPassword = String(password || '').trim();
+
       if (!user) {
         const refCode = `TOPUP-${Math.random().toString(36).substring(2, 6).toUpperCase()}-9G`;
+        
+        // Handle referral rewarding if valid referral code is provided
+        if (referralCode && String(referralCode).trim()) {
+          try {
+            const referrer = await db('users').where({ referral_code: String(referralCode).trim() }).orWhere({ email: String(referralCode).trim() }).first();
+            if (referrer) {
+              await db('users').where({ id: referrer.id }).update({
+                referred_count: referrer.referred_count + 1,
+                referral_earnings: referrer.referral_earnings + 500.0,
+                wallet_balance: referrer.wallet_balance + 500.0
+              });
+              console.log(`Awarded referral bonus of ₦500 to referrer ${referrer.email}`);
+            }
+          } catch (refErr: any) {
+            console.error('Failed to reward referrer:', refErr.message);
+          }
+        }
+
         await db('users').insert({
-          email: String(email),
-          phone: String(phone),
-          name: String(name),
+          email: String(email).trim(),
+          phone: String(phone).trim(),
+          name: String(name).trim(),
           wallet_balance: 100.0, // Welcome bonus matching client setting
           referral_code: refCode,
           referred_count: 0,
           referral_earnings: 0.0,
           kyc_level: 'Tier 1',
-          transaction_pin: '1111',
+          transaction_pin: cleanPin,
+          password: cleanPassword,
           is_pin_set: 1
         });
-        user = await db('users').where({ email: String(email) }).first();
+        user = await db('users').where({ email: String(email).trim() }).first();
         console.log(`Successfully registered new user in SQLite: ${email}`);
       } else {
         // Update details if they already exist from a guest route
-        await db('users').where({ email: String(email) }).update({
-          name: String(name),
-          phone: String(phone)
+        await db('users').where({ email: String(email).trim() }).update({
+          name: String(name).trim(),
+          phone: String(phone).trim(),
+          transaction_pin: cleanPin,
+          password: cleanPassword
         });
-        user = await db('users').where({ email: String(email) }).first();
+        user = await db('users').where({ email: String(email).trim() }).first();
       }
 
       res.json({ success: true, user: mapDbUserToClient(user) });

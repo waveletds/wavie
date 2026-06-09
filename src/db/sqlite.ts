@@ -46,6 +46,7 @@ export async function runMigrations() {
       table.double('referral_earnings').defaultTo(0.0).notNullable();
       table.string('kyc_level').defaultTo('Tier 1').notNullable();
       table.string('transaction_pin').defaultTo('1111').notNullable();
+      table.string('password').defaultTo('').nullable();
       table.integer('is_pin_set').defaultTo(1).notNullable(); // 1 = true, 0 = false
       table.integer('is_webauthn_enabled').defaultTo(0).notNullable();
       table.text('webauthn_credential_id').nullable();
@@ -59,6 +60,13 @@ export async function runMigrations() {
         table.text('webauthn_credential_id').nullable();
       });
       console.log('✔ Added WebAuthn columns to existing "users" table.');
+    }
+    const hasPassword = await db.schema.hasColumn('users', 'password');
+    if (!hasPassword) {
+      await db.schema.alterTable('users', (table) => {
+        table.string('password').defaultTo('').nullable();
+      });
+      console.log('✔ Added password column to existing "users" table.');
     }
   }
 
