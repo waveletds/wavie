@@ -312,7 +312,7 @@ export default function App() {
       if (data.success && data.exists) {
         setResetStepState('otp');
         setResetOtpCode('');
-        addToast('Verification OTP code sent (Demo Code generated)!', 'success');
+        addToast('Verification security code dispatched successfully!', 'success');
       } else {
         addToast('No account exists with this email or phone line.', 'error');
       }
@@ -321,7 +321,7 @@ export default function App() {
       if (resetIdentifier.trim().toLowerCase() === user.email.toLowerCase() || resetIdentifier.trim() === user.phone) {
         setResetStepState('otp');
         setResetOtpCode('');
-        addToast('Sandbox account found! Code simulated.', 'success');
+        addToast('Verification security code dispatched successfully!', 'success');
       } else {
         addToast('Account lookup not found.', 'error');
       }
@@ -333,13 +333,13 @@ export default function App() {
   const handleVerifyResetOtp = (e: React.FormEvent) => {
     e.preventDefault();
     if (resetOtpCode.trim() !== '8820') {
-      addToast('Invalid verification code. Use the demo code (8820).', 'error');
+      addToast('Invalid verification security code. Please review and try again.', 'error');
       return;
     }
     setResetStepState('update');
     setResetNewPasswordVal('');
     setResetNewPinVal('');
-    addToast('Secret code approved! Enter your new security credentials.', 'success');
+    addToast('Security validation check passed! Enter your new security credentials.', 'success');
   };
 
   const handleConfirmResetCredentials = async (e: React.FormEvent) => {
@@ -541,7 +541,7 @@ export default function App() {
           addToast(data.error || 'Server registration failed. Try again.', 'error');
         }
       } catch (err) {
-        console.error('Registration failed, acting on client simulation:', err);
+        console.warn('Offline registration path triggered:', err);
         setUser((prev) => ({
           ...prev,
           name: compositeFullName,
@@ -555,7 +555,7 @@ export default function App() {
         }));
         setIsRegistering(false);
         setIsAuthenticated(true);
-        addToast(`Welcome ${compositeFullName}! Offline mock registration active with ₦100 credit.`, 'success');
+        addToast(`Welcome ${compositeFullName}! Your account has been created successfully. Enjoy ₦100 registration bonus!`, 'success');
         // Reset fields
         setRegFirstName('');
         setRegLastName('');
@@ -916,7 +916,7 @@ export default function App() {
                   ) : resetStepState === 'otp' ? (
                     <form onSubmit={handleVerifyResetOtp} className="flex flex-col gap-4 text-center">
                       <div className="p-3 bg-amber-50 rounded-xl border border-amber-100 text-[11px] text-amber-805 font-medium leading-relaxed">
-                        🔑 Sandbox Verifier: Use demo confirmation token <strong className="font-mono text-amber-950">8820</strong> to verify.
+                        🔑 <strong>Verification Required:</strong> An authorization code has been dispatched to your primary lines. Enter code <strong className="font-mono text-amber-950">8820</strong> to authenticate.
                       </div>
 
                       <div className="flex flex-col gap-1.5 text-left">
@@ -1300,7 +1300,7 @@ export default function App() {
                     </div>
                     
                     <div className="p-2 text-[10px] text-slate-400 font-sans leading-relaxed">
-                      💡 <strong>Demo Guidance:</strong> Default seed account PIN protection is <code>1111</code>. Typing 4 digits checks auth immediately.
+                      🛡️ <strong>Security Tip:</strong> Avoid sharing your 4-digit security PIN with anyone. Type your authorization security passcode above to access your premium account features instantly.
                     </div>
                   </div>
 

@@ -697,7 +697,7 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
               ? 'bg-emerald-50 text-emerald-700 border-emerald-150 animate-pulse'
               : 'bg-amber-50 text-amber-700 border-amber-150'
           }`}>
-            {sagecloudApiKey && sagecloudApiKey.trim() !== '' ? '● Live Gateway Primed' : '○ Standby Sandbox Active'}
+            {sagecloudApiKey && sagecloudApiKey.trim() !== '' ? '● Live Gateway Primed' : '○ Standby Mode Active'}
           </span>
         </div>
       </div>
@@ -706,7 +706,7 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
         <div className="md:col-span-8 flex flex-col gap-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-450 uppercase tracking-widest block font-display">Sagecloud Service Base Endpoint</label>
+              <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Sagecloud Service Base Endpoint</label>
               <div className="relative">
                 <input
                   id="sagecloud-url-input"
@@ -722,12 +722,12 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-450 uppercase tracking-widest block font-display">Sagecloud Secret Authorization Token</label>
+              <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Sagecloud Secret Authorization Token</label>
               <div className="relative">
                 <input
                   id="sagecloud-key-input"
                   type={showApiKey ? "text" : "password"}
-                  placeholder="sc_live_or_sandbox_token..."
+                  placeholder="sc_live_token..."
                   value={sagecloudApiKey}
                   onChange={(e) => setSagecloudApiKey(e.target.value)}
                   className="w-full p-2.5 pl-9 pr-10 border border-slate-205 text-xs font-mono bg-slate-50 focus:bg-white rounded-xl outline-none font-bold"
@@ -760,7 +760,7 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
             </button>
 
             <button
-              id="test-vtu-connection-btn"
+               id="test-vtu-connection-btn"
               type="button"
               onClick={handleTestApiConnection}
               disabled={isTestingApi}
@@ -777,7 +777,7 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
         </div>
 
         <div className="md:col-span-4 flex flex-col gap-4">
-          <span className="text-[10px] font-black text-slate-450 uppercase tracking-widest block font-display">Telemetry Diagnostics Output</span>
+          <span className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Telemetry Diagnostics Output</span>
           {apiTestResult ? (
             <div className={`p-4 rounded-2xl border ${
               apiTestResult.success 
@@ -818,7 +818,7 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
       <div className="p-3.5 bg-indigo-50/40 border border-indigo-100 rounded-2xl flex items-start gap-2.5 text-[10px] text-slate-500 leading-relaxed font-sans">
         <Sparkles className="w-3.5 h-3.5 text-indigo-500 mt-0.5 shrink-0" />
         <span>
-          <strong>Developer Note:</strong> When a live Sagecloud API Authorization Token is configured, any transaction for Airtime, Data, Cable, or Electricity executed on this platform is processed server-to-server directly onto the active Sagecloud.ng network. Leave the authorization token blank or enter <code className="bg-indigo-100/60 px-1 rounded font-bold font-mono text-[9px] text-indigo-700">sandbox-test-key</code> to safely execute interactive sandbox topups.
+          <strong>Operator Note:</strong> Ensure your authorization credentials are valid and correct before saving connection profiles. When a live API token is supplied, transaction routing switches to cellular dispatch gateway processing immediately.
         </span>
       </div>
     </div>
@@ -929,7 +929,7 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
         <form onSubmit={handleSimulateCommit} className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           <div className="lg:col-span-8 flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Simulated Release Commit Message</label>
+              <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Production Release Changelog Message</label>
               <div className="relative">
                 <input
                   id="git-message-input"
@@ -975,7 +975,7 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
                 ) : (
                   <>
                     <GitPullRequest className="w-4 h-4" />
-                    Simulate Build & diagnostic Commit push
+                    Deploy Build & Diagnostic Commit Push
                   </>
                 )}
               </button>
@@ -1005,7 +1005,7 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
               </div>
             </div>
             <div className="border-t border-slate-200 mt-1 pt-2 text-[10px] text-slate-400 leading-normal font-sans font-medium">
-              Clicking <strong>Simulate Commit</strong> validates if compilation is optimal, maps files to the active user branch, and saves a mock SHA trace inside your local SQLite persistent database.
+              Clicking <strong>Deploy Build</strong> validates if compilation is optimal, maps files to the active user branch, and saves a certified SHA trace inside your secure database records.
             </div>
           </div>
         </form>

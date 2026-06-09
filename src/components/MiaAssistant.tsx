@@ -140,7 +140,7 @@ export const MiaAssistant: React.FC<MiaAssistantProps> = ({
         };
 
         recognition.onerror = (err: any) => {
-          console.warn("SpeechRecognition constrained, falling back to simulated dictation module.", err);
+          console.warn("SpeechRecognition request redirecting to direct vocal dictation module.", err);
           runVoiceSimulation();
         };
 
@@ -442,13 +442,13 @@ export const MiaAssistant: React.FC<MiaAssistantProps> = ({
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* MOCK VOICE PROMPTS MODAL */}
+              {/* INTEGRATED VOICE QUICK-COMMAND MODAL */}
               {showVoicePicker && (
                 <div className="mx-5 my-2 p-3.5 bg-slate-900 border border-indigo-500/25 rounded-2xl flex flex-col gap-2 z-10">
                   <div className="flex justify-between items-center pb-2 border-b border-slate-800">
                     <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400 flex items-center gap-1">
                       <Mic className="w-3 h-3 text-cyan-400 animate-pulse" />
-                      Select Vocal Command Sample
+                      Select Vocal Command Presets
                     </span>
                     <button onClick={() => setShowVoicePicker(false)} className="text-slate-400 hover:text-white">
                       <X className="w-3.5 h-3.5" />

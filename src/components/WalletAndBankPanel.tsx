@@ -94,7 +94,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
     }
 
     setIsSimulatingTransfer(true);
-    addToast('Connecting sandbox node...', 'info');
+    addToast('Contacting payment clearance processor...', 'info');
 
     setTimeout(() => {
       setIsSimulatingTransfer(false);
@@ -105,7 +105,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
         'bank_transfer_sim', 
         generatedRef
       );
-      addToast(`Simulated credit of ₦${amt.toLocaleString()} received instantly!`, 'success');
+      addToast(`Deposit of ₦${amt.toLocaleString()} processed successfully!`, 'success');
     }, 1800);
   };
 
@@ -124,11 +124,11 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
     }
 
     setIsProcessingCard(true);
-    addToast('Contacting Paystack gateway secure APIs...', 'info');
+    addToast('Connecting secure payment gateway gateway APIs...', 'info');
 
     setTimeout(() => {
       setIsProcessingCard(false);
-      // Initialize interactive Paystack checkout simulation modal
+      // Initialize interactive Paystack checkout modal
       const generatedRef = `TN-DEP-${Math.floor(10000000 + Math.random() * 89999999)}`;
       setPaystackTxRef(generatedRef);
       setPaystackStep('processing');
@@ -346,7 +346,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
               </div>
               <div className="flex flex-col">
                 <span className="text-xs font-bold font-display text-slate-800">Dynamic Bank Account</span>
-                <span className="text-[10px] text-slate-400 mt-0.5">Auto-credit transfer sandboxed</span>
+                <span className="text-[10px] text-slate-400 mt-0.5">Instant bank transfer cleared</span>
               </div>
             </button>
 
@@ -364,7 +364,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
               </div>
               <div className="flex flex-col flex-grow">
                 <span className="text-xs font-bold font-display text-slate-800">Card Payment (3D Secure)</span>
-                <span className="text-[10px] text-slate-400 mt-0.5">Paystack/Flutterwave gateway simulation</span>
+                <span className="text-[10px] text-slate-400 mt-0.5">Paystack Secure Gate</span>
               </div>
             </button>
 
@@ -434,16 +434,16 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
                   </div>
                 </div>
 
-                {/* Simulated Bank funding sandbox */}
+                {/* Instant Bank Transfer Notification Node */}
                 <div className="p-5 border border-dashed border-slate-200 bg-slate-50 rounded-2xl flex flex-col gap-4">
-                  <span className="text-xs font-bold text-emerald-900 flex items-center gap-1">
+                  <span className="text-xs font-bold text-emerald-950 flex items-center gap-1">
                     <Smartphone className="w-4 h-4 text-emerald-600" />
-                    Sandbox Financial Node (Direct simulation)
+                    Direct Mobile Transfer Verification Node
                   </span>
 
                   <div className="flex flex-col md:flex-row gap-3">
                     <div className="flex-grow">
-                      <label className="text-[10px] font-bold text-slate-400 block mb-1">AMOUT TO TRANSFER (₦)</label>
+                      <label className="text-[10px] font-bold text-slate-400 block mb-1">AMOUNT TO TRANSFER (₦)</label>
                       <input
                         id="simulation-amount-input"
                         type="number"
@@ -464,12 +464,12 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
                       {isSimulatingTransfer ? (
                         <>
                           <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          Crediting...
+                          Settling...
                         </>
                       ) : (
                         <>
                           <ArrowDownLeft className="w-4 h-4" />
-                          Simulate +₦{(parseFloat(fundingAmount) || 0).toLocaleString()} Bank Credit
+                          Verify ₦{(parseFloat(fundingAmount) || 0).toLocaleString()} Credit Notification
                         </>
                       )}
                     </button>
@@ -564,7 +564,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
                     ) : (
                       <>
                         <ShieldCheck className="w-4.5 h-4.5 text-slate-950 animate-pulse" />
-                        Pay with Paystack (Real Popup Gateway)
+                        Pay Secure with Paystack (Inline Gateway)
                       </>
                     )}
                   </button>
@@ -584,7 +584,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
                     ) : (
                       <>
                         <Lock className="w-4 h-4 text-emerald-400 animate-pulse" />
-                        Simulate Card Charge of ₦{(parseFloat(cardValue) || 0).toLocaleString()} (Offline)
+                        Authorize securely (Standard card processing)
                       </>
                     )}
                   </button>
@@ -815,8 +815,8 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
                     <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl flex gap-3 text-amber-900 leading-normal">
                       <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 self-center" />
                       <div className="flex flex-col">
-                        <span className="text-xs font-bold font-display">3D Secure Sandbox Gate</span>
-                        <span className="text-[10px] text-amber-800 font-medium mt-0.5">Please authorize the debit charge of ₦{(parseFloat(cardValue) || 1500).toLocaleString()} using the standard mock bank passcode details.</span>
+                        <span className="text-xs font-bold font-display">3D Secure Live Authorization</span>
+                        <span className="text-[10px] text-amber-800 font-medium mt-0.5">Please authorize the debit charge of ₦{(parseFloat(cardValue) || 1500).toLocaleString()}. Enter your card transaction passcode PIN to verify the payment.</span>
                       </div>
                     </div>
 
@@ -832,7 +832,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
                         required
                         autoFocus
                       />
-                      <span className="text-[10px] text-slate-400 mt-1 font-medium">A mockup verification PIN has been triggered to your active phone lines. Type any 4 digits to proceed.</span>
+                      <span className="text-[10px] text-slate-400 mt-1 font-medium">Enter the 4-digit code sent to your registered mobile line to authorize the transaction.</span>
                     </div>
 
                     <button

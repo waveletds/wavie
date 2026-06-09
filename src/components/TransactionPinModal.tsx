@@ -288,15 +288,6 @@ export const TransactionPinModal: React.FC<TransactionPinModalProps> = ({
               {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               {showPin ? 'Hide characters' : 'Show characters'}
             </button>
-
-            <button
-              id="autofill-pin-btn"
-              type="button"
-              onClick={handleMockPinAutoFill}
-              className="text-indigo-600 font-semibold hover:text-indigo-800"
-            >
-              {isPinSet ? 'Auto-Fill Current PIN' : 'Set standard PIN (1111)'}
-            </button>
           </div>
 
           {/* Buttons */}

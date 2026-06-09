@@ -85,7 +85,7 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
     }
   };
 
-  // Run dynamic verification simulations
+  // Run dynamic verification checks
   const handleValidateElectric = () => {
     if (meterNumber.trim().length < 8) {
       addToast('Please enter a valid meter number (minimum 8 digits).', 'error');
@@ -170,7 +170,7 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
 
       const discoObj = DISCOS.find((d) => d.id === selectedDiscoId);
       
-      // Simulate generated token code
+      // Generate transaction token code
       const tok1 = Math.floor(1000 + Math.random() * 9000);
       const tok2 = Math.floor(1000 + Math.random() * 9000);
       const tok3 = Math.floor(1000 + Math.random() * 9000);

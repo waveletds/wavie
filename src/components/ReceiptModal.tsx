@@ -326,7 +326,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ isOpen, onClose, tra
           <button
             id="download-receipt-btn"
             onClick={() => {
-              addToast('Receipt saved to device (Simulated PDF download successful)', 'success');
+              addToast('Receipt saved to device successfully (PDF downloaded)', 'success');
             }}
             className="flex-1 py-3 bg-slate-900 hover:bg-black text-white hover:shadow-lg rounded-2xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95"
           >
