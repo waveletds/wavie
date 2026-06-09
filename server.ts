@@ -486,7 +486,9 @@ async function startServer() {
         await db('api_configs').insert({
           user_email: String(email),
           sagecloud_api_key: null,
-          sagecloud_api_url: 'https://api.sagecloud.ng/v1'
+          sagecloud_api_url: 'https://api.sagecloud.ng/v1',
+          paystack_public_key: null,
+          paystack_secret_key: null
         });
         config = await db('api_configs').where({ user_email: String(email) }).first();
       }
@@ -498,7 +500,7 @@ async function startServer() {
 
   // Save configurations
   app.post('/api/user/vtu-config', async (req: Request, res: Response, next: NextFunction) => {
-    const { email, sagecloudApiKey, sagecloudApiUrl } = req.body;
+    const { email, sagecloudApiKey, sagecloudApiUrl, paystackPublicKey, paystackSecretKey } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Email parameter required' });
     }
@@ -509,12 +511,16 @@ async function startServer() {
         await db('api_configs').insert({
           user_email: email,
           sagecloud_api_key: sagecloudApiKey || null,
-          sagecloud_api_url: sagecloudApiUrl || 'https://api.sagecloud.ng/v1'
+          sagecloud_api_url: sagecloudApiUrl || 'https://api.sagecloud.ng/v1',
+          paystack_public_key: paystackPublicKey || null,
+          paystack_secret_key: paystackSecretKey || null
         });
       } else {
         await db('api_configs').where({ user_email: email }).update({
-          sagecloud_api_key: sagecloudApiKey || null,
-          sagecloud_api_url: sagecloudApiUrl || 'https://api.sagecloud.ng/v1'
+          sagecloud_api_key: sagecloudApiKey !== undefined ? sagecloudApiKey : null,
+          sagecloud_api_url: sagecloudApiUrl !== undefined ? sagecloudApiUrl : 'https://api.sagecloud.ng/v1',
+          paystack_public_key: paystackPublicKey !== undefined ? paystackPublicKey : null,
+          paystack_secret_key: paystackSecretKey !== undefined ? paystackSecretKey : null
         });
       }
       const updatedConfig = await db('api_configs').where({ user_email: email }).first();
@@ -979,7 +985,17 @@ async function startServer() {
       return res.status(400).json({ error: 'Email and payment reference are required.' });
     }
 
-    const pSecret = process.env.PAYSTACK_SECRET_KEY;
+    // Try finding a configured paystack secret key from DB first, then Env variable
+    let pSecret = process.env.PAYSTACK_SECRET_KEY;
+    try {
+      const config = await db('api_configs').where({ user_email: email }).first();
+      if (config && config.paystack_secret_key && config.paystack_secret_key.trim() !== '') {
+        pSecret = config.paystack_secret_key.trim();
+        console.log(`[PAYSTACK_VERIFY] Using user-defined custom Paystack Secret Key for ${email}`);
+      }
+    } catch (dbErr) {
+      console.warn('[PAYSTACK_VERIFY] Could not fetch DB configuration, falling back to Env variables:', dbErr);
+    }
 
     if (pSecret && pSecret.trim() !== '') {
       try {
@@ -1124,10 +1140,24 @@ async function startServer() {
 
   // Secure Paystack official payment notification Webhook
   app.post('/api/paystack/webhook', async (req: Request, res: Response, next: NextFunction) => {
-    const pSecret = process.env.PAYSTACK_SECRET_KEY;
+    const payload = req.body || {};
+    const userEmailFromPayload = payload.data?.customer?.email;
     const signature = req.headers['x-paystack-signature'];
 
     console.log('[PAYSTACK_WEBHOOK] Incoming payments signature notification check received!');
+
+    let pSecret = process.env.PAYSTACK_SECRET_KEY;
+    if (userEmailFromPayload) {
+      try {
+        const config = await db('api_configs').where({ user_email: userEmailFromPayload }).first();
+        if (config && config.paystack_secret_key && config.paystack_secret_key.trim() !== '') {
+          pSecret = config.paystack_secret_key.trim();
+          console.log(`[PAYSTACK_WEBHOOK] Using user-defined custom Paystack Secret Key for ${userEmailFromPayload}`);
+        }
+      } catch (dbErr) {
+        console.warn('[PAYSTACK_WEBHOOK] Could not query user configurations:', dbErr);
+      }
+    }
 
     if (pSecret && pSecret.trim() !== '') {
       if (!signature) {
@@ -1151,8 +1181,6 @@ async function startServer() {
       }
     }
 
-    const payload = req.body;
-    
     if (payload && payload.event === 'charge.success') {
       const dataObj = payload.data;
       const reference = dataObj.reference;

@@ -126,24 +126,24 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
         className="w-full"
         id="wallet-board"
       >
-        {/* Wallet Display Card */}
-        <div className="relative overflow-hidden bg-slate-900 text-white rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
-          {/* Subtle design circles */}
-          <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-600/10 rounded-full blur-2xl group-hover:bg-emerald-600/20 transition-all duration-300" />
-          <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-emerald-600/5 rounded-full blur-xl" />
+        {/* Wallet Display Card - Premium Luxury Silk Theme Card */}
+        <div className="relative overflow-hidden bg-slate-900 text-white rounded-[2rem] p-7 border border-white/[0.04] shadow-[0_24px_50px_-12px_rgba(15,23,42,0.18)] flex flex-col justify-between group transition-all duration-300 hover:shadow-[0_28px_60px_-10px_rgba(15,23,42,0.25)] hover:border-emerald-500/20">
+          {/* Subtle design circles with high dynamic organic flow */}
+          <div className="absolute -right-12 -top-12 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/15 group-hover:scale-110 transition-all duration-700 pointer-events-none" />
+          <div className="absolute -left-12 -bottom-12 w-36 h-36 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
 
           <div className="flex justify-between items-start z-10">
             <div className="flex flex-col">
-              <span className="text-xs text-slate-400 font-display font-medium uppercase tracking-widest">
-                Main Balance
+              <span className="text-[10px] sm:text-xs text-slate-450 font-display font-black uppercase tracking-widest leading-none">
+                Main Wallet Balance
               </span>
-              <span className="text-3xl md:text-4xl font-extrabold font-display mt-2 flex items-baseline gap-1" id="balance-amount">
+              <span className="text-3xl md:text-4xl font-black font-display mt-3.5 flex items-baseline gap-1" id="balance-amount">
                 ₦{user.walletBalance.toLocaleString('en-NG')}
-                <span className="text-xs font-mono font-medium text-slate-400">.00</span>
+                <span className="text-xs font-mono font-medium text-emerald-400">.00</span>
               </span>
             </div>
-            <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md">
-              <Wallet className="w-6 h-6 text-slate-300 animate-pulse-slow" />
+            <div className="p-3 bg-white/[0.06] border border-white/[0.06] rounded-2xl backdrop-blur-xl shrink-0">
+              <Wallet className="w-5 h-5 text-emerald-400" />
             </div>
           </div>
 
@@ -200,12 +200,12 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
                 key={key}
                 id={`quick-action-tab-${item.tab}`}
                 onClick={() => onNavigate(item.tab as ActiveTab)}
-                className="bg-white p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-200 hover:border-emerald-500 hover:-translate-y-1 hover:scale-[1.02] active:scale-95 cursor-pointer flex flex-col items-center justify-center gap-2 group transition-all duration-200 text-center shadow-sm hover:shadow-md select-none"
+                className="bg-white/85 backdrop-blur-md p-4 sm:p-5 rounded-2xl border border-[#E5E2DA]/80 hover:border-emerald-500 hover:bg-white hover:-translate-y-1 hover:scale-[1.03] active:scale-95 cursor-pointer flex flex-col items-center justify-center gap-3 group transition-all duration-300 text-center shadow-[0_6px_20px_rgba(115,108,92,0.02)] hover:shadow-[0_16px_36px_rgba(115,108,92,0.07)] select-none"
               >
-                <div className={`w-11 h-11 sm:w-12 sm:h-12 ${colors.bg} ${colors.text} rounded-xl flex items-center justify-center ${colors.hoverBg} transition-all duration-300`}>
+                <div className={`w-11 h-11 sm:w-12 sm:h-12 ${colors.bg} ${colors.text} rounded-2xl flex items-center justify-center ${colors.hoverBg} transition-all duration-300 shadow-sm`}>
                   {item.icon}
                 </div>
-                <span className="font-display font-bold text-slate-800 text-xs sm:text-sm mt-1 transition-colors group-hover:text-emerald-600">
+                <span className="font-display font-black text-slate-800 text-xs sm:text-sm mt-1.5 transition-colors group-hover:text-emerald-600">
                   {item.label}
                 </span>
                 <p className="text-[10px] text-slate-400 mt-0.5 font-medium truncate w-full px-1">

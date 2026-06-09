@@ -6,17 +6,37 @@
   --font-display: "Outfit", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --animate-fade-in-up: fade-in-up 0.35s cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
-  --animate-pulse-slow: pulse-slow 3s infinite ease-in-out;
-  --animate-bounce-in: bounce-in 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards;
-  --animate-scale-in: scale-in 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  --animate-fade-in-up: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-pulse-slow: pulse-slow 4s infinite ease-in-out;
+  --animate-bounce-in: bounce-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-scale-in: scale-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-bounce-slow: bounce-slow 4s infinite ease-in-out;
-  --animate-spin-slow: spin-slow 12s infinite linear;
+  --animate-spin-slow: spin-slow 20s infinite linear;
+  --animate-silk-drift: silk-drift 24s infinite alternate ease-in-out;
+
+  @keyframes silk-drift {
+    0% {
+      transform: translate(0px, 0px) scale(1) rotate(0deg);
+      filter: blur(80px);
+    }
+    33% {
+      transform: translate(30px, -50px) scale(1.15) rotate(120deg);
+      filter: blur(100px);
+    }
+    66% {
+      transform: translate(-20px, 20px) scale(0.9) rotate(240deg);
+      filter: blur(90px);
+    }
+    100% {
+      transform: translate(0px, 0px) scale(1) rotate(360deg);
+      filter: blur(80px);
+    }
+  }
 
   @keyframes bounce-in {
     0% {
       opacity: 0;
-      transform: translateY(16px) scale(0.97);
+      transform: translateY(24px) scale(0.98);
     }
     100% {
       opacity: 1;
@@ -27,7 +47,7 @@
   @keyframes scale-in {
     0% {
       opacity: 0;
-      transform: scale(0.97);
+      transform: scale(0.98);
     }
     100% {
       opacity: 1;
@@ -56,7 +76,7 @@
   @keyframes fade-in-up {
     0% {
       opacity: 0;
-      transform: translateY(12px);
+      transform: translateY(16px);
     }
     100% {
       opacity: 1;
@@ -66,10 +86,10 @@
 
   @keyframes pulse-slow {
     0%, 100% {
-      opacity: 0.15;
+      opacity: 0.12;
     }
     50% {
-      opacity: 0.35;
+      opacity: 0.28;
     }
   }
 }
@@ -82,10 +102,54 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Luxurious Silk Design Surfaces */
+  .silk-glass {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    box-shadow: 0 8px 32px 0 rgba(142, 137, 126, 0.04);
+  }
+
+  .silk-glass-dark {
+    background: rgba(15, 23, 42, 0.72);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+  }
+
+  .silk-card {
+    background: #FFFFFF;
+    border: 1px solid rgba(229, 226, 218, 0.65);
+    box-shadow: 0 10px 40px -15px rgba(120, 110, 90, 0.06);
+    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .silk-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 48px -12px rgba(120, 110, 90, 0.1);
+    border-color: rgba(16, 185, 129, 0.25);
+  }
+
+  .silk-input {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(4px);
+    border: 1.5px solid rgba(229, 226, 218, 0.85);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .silk-input:focus {
+    background: #FFFFFF;
+    border-color: #10B981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.08);
+  }
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: #F3F4F6;
-  color: #0f172a;
+  background-color: #FAF9F6;
+  color: #1E293B;
+  overflow-x: hidden;
 }

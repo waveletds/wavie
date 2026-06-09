@@ -43,7 +43,7 @@ export const BeneficiarySelector: React.FC<BeneficiarySelectorProps> = ({
 
   if (filtered.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-4 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+      <div className="flex flex-col items-center justify-center p-5 bg-white/60 border border-dashed border-slate-205 rounded-2xl">
         <Heart className="w-5 h-5 text-slate-350 stroke-[1.5]" />
         <span className="text-xs text-slate-450 mt-1.5 font-medium">No saved beneficiaries here yet.</span>
       </div>
@@ -68,8 +68,8 @@ export const BeneficiarySelector: React.FC<BeneficiarySelectorProps> = ({
             id={`beneficiary-item-${b.id}`}
             type="button"
             onClick={() => onSelect(b)}
-            className="flex-shrink-0 flex items-center gap-3 p-2.5 bg-white border border-slate-100 hover:border-indigo-200 hover:shadow-md rounded-xl text-left transition-all group duration-250 focus:outline-none"
-            style={{ width: '165px' }}
+            className="flex-shrink-0 flex items-center gap-3 p-3 bg-white/75 backdrop-blur-sm border border-[#E5E2DA]/85 hover:border-emerald-500 hover:bg-white hover:shadow-lg rounded-2xl text-left transition-all duration-300 group focus:outline-none"
+            style={{ width: '175px' }}
           >
             {/* Round Avatar badge */}
             <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center flex-shrink-0 font-bold transition-transform group-hover:scale-105 font-display text-sm ${getLogoColor(b.provider)}`}>

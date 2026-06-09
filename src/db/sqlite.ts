@@ -125,8 +125,20 @@ export async function runMigrations() {
       table.string('user_email').notNullable().unique().references('email').inTable('users').onDelete('CASCADE');
       table.string('sagecloud_api_key').nullable();
       table.string('sagecloud_api_url').defaultTo('https://api.sagecloud.ng/v1').nullable();
+      table.string('paystack_public_key').nullable();
+      table.string('paystack_secret_key').nullable();
     });
-    console.log('✔ Migrated "api_configs" table.');
+    console.log('✔ Migrated "api_configs" table with Paystack support.');
+  } else {
+    // Add additional fields dynamically to handle runtime updates
+    const hasPubKey = await db.schema.hasColumn('api_configs', 'paystack_public_key');
+    if (!hasPubKey) {
+      await db.schema.table('api_configs', (table) => {
+        table.string('paystack_public_key').nullable();
+        table.string('paystack_secret_key').nullable();
+      });
+      console.log('✔ Patched "api_configs" table with paystack_public_key & paystack_secret_key.');
+    }
   }
 
   // 5. Git Simulated Commits table

@@ -159,7 +159,10 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
       console.warn("Paystack Inline JS failed to load, falling back to embedded checkout.");
     }
 
-    const pKey = (import.meta as any).env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_c962bda7bcde1bbf9fd6f801646271a067e2da5b';
+    const localPubKey = localStorage.getItem(`topup_paystack_public_key_${user.email}`);
+    const pKey = (localPubKey && localPubKey.trim() !== '') 
+      ? localPubKey.trim() 
+      : ((import.meta as any).env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_c962bda7bcde1bbf9fd6f801646271a067e2da5b');
 
     // If script loaded successfully, try real checkout
     if (scriptLoaded && pKey) {

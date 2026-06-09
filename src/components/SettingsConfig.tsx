@@ -31,6 +31,14 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
   const [sagecloudApiUrl, setSagecloudApiUrl] = useState<string>(() => {
     return localStorage.getItem(`topup_sagecloud_api_url_${user.email}`) || 'https://api.sagecloud.ng/v1';
   });
+  const [paystackPublicKey, setPaystackPublicKey] = useState<string>(() => {
+    return localStorage.getItem(`topup_paystack_public_key_${user.email}`) || '';
+  });
+  const [paystackSecretKey, setPaystackSecretKey] = useState<string>(() => {
+    return localStorage.getItem(`topup_paystack_secret_key_${user.email}`) || '';
+  });
+  const [showPaystackSecret, setShowPaystackSecret] = useState<boolean>(false);
+  const [showSagecloudKey, setShowSagecloudKey] = useState<boolean>(false);
   const [isTestingApi, setIsTestingApi] = useState<boolean>(false);
   const [isSavingApi, setIsSavingApi] = useState<boolean>(false);
   const [apiTestResult, setApiTestResult] = useState<{
@@ -90,8 +98,12 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
           if (data.success && data.config) {
             setSagecloudApiKey(data.config.sagecloud_api_key || '');
             setSagecloudApiUrl(data.config.sagecloud_api_url || 'https://api.sagecloud.ng/v1');
+            setPaystackPublicKey(data.config.paystack_public_key || '');
+            setPaystackSecretKey(data.config.paystack_secret_key || '');
             localStorage.setItem(`topup_sagecloud_api_key_${user.email}`, data.config.sagecloud_api_key || '');
             localStorage.setItem(`topup_sagecloud_api_url_${user.email}`, data.config.sagecloud_api_url || 'https://api.sagecloud.ng/v1');
+            localStorage.setItem(`topup_paystack_public_key_${user.email}`, data.config.paystack_public_key || '');
+            localStorage.setItem(`topup_paystack_secret_key_${user.email}`, data.config.paystack_secret_key || '');
           }
         }
       } catch (err) {
@@ -171,6 +183,8 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
     // Dynamic instant save to offline local persistence layers
     localStorage.setItem(`topup_sagecloud_api_key_${user.email}`, sagecloudApiKey);
     localStorage.setItem(`topup_sagecloud_api_url_${user.email}`, sagecloudApiUrl);
+    localStorage.setItem(`topup_paystack_public_key_${user.email}`, paystackPublicKey);
+    localStorage.setItem(`topup_paystack_secret_key_${user.email}`, paystackSecretKey);
 
     try {
       const response = await fetch('/api/user/vtu-config', {
@@ -182,21 +196,23 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
           email: user.email,
           sagecloudApiKey: sagecloudApiKey,
           sagecloudApiUrl: sagecloudApiUrl,
+          paystackPublicKey: paystackPublicKey,
+          paystackSecretKey: paystackSecretKey
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          addToast('Sagecloud.ng API configuration saved successfully!', 'success');
+          addToast('Payment gateway & VTU API profiles saved successfully!', 'success');
         } else {
-          addToast(data.error || 'Failed to update remote Sagecloud settings.', 'error');
+          addToast(data.error || 'Failed to update remote gateway configurations.', 'error');
         }
       } else {
-        addToast('Sagecloud configurations saved in offline local memory.', 'success');
+        addToast('Configurations saved securely in browser local storage.', 'success');
       }
     } catch (err: any) {
-      addToast('Sagecloud configurations saved in offline local memory.', 'success');
+      addToast('Configurations saved securely in browser local storage.', 'success');
     } finally {
       setIsSavingApi(false);
     }
@@ -804,7 +820,7 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
               <div className="relative">
                 <input
                   id="sagecloud-key-input"
-                  type={showApiKey ? "text" : "password"}
+                  type={showSagecloudKey ? "text" : "password"}
                   placeholder="sc_live_token..."
                   value={sagecloudApiKey}
                   onChange={(e) => setSagecloudApiKey(e.target.value)}
@@ -813,10 +829,10 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
                 <KeyRound className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
                 <button
                   type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
+                  onClick={() => setShowSagecloudKey(!showSagecloudKey)}
                   className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-650 p-1"
                 >
-                  {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showSagecloudKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
@@ -897,6 +913,103 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
         <Sparkles className="w-3.5 h-3.5 text-indigo-500 mt-0.5 shrink-0" />
         <span>
           <strong>Operator Note:</strong> Ensure your authorization credentials are valid and correct before saving connection profiles. When a live API token is supplied, transaction routing switches to cellular dispatch gateway processing immediately.
+        </span>
+      </div>
+    </div>
+
+    {/* Paystack Payment Gateway API Integration Keys Configuration */}
+    <div className="bg-white rounded-2xl border border-slate-101 shadow-sm p-6 flex flex-col gap-6 w-full" id="paystack-keys-config-area">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-50 pb-5">
+        <div className="flex items-start gap-3">
+          <div className="p-3 bg-teal-50 border border-teal-150 rounded-2xl text-teal-650 shrink-0">
+            <Sparkles className="w-4 h-4 text-teal-600" />
+          </div>
+          <div>
+            <h3 className="font-display font-black text-slate-900 text-sm tracking-wide uppercase flex items-center gap-1.5">
+              Paystack Gateway Integration Keys Settings
+            </h3>
+            <p className="text-[11px] text-slate-400 font-medium font-sans animate-[fadeIn_0.5s_ease-out]">
+              Set your live or test Paystack Credentials to initiate real interactive payment popups and authorize verified auto-credits instantly.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border ${
+            paystackPublicKey && paystackPublicKey.trim().startsWith('pk_')
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-150 animate-pulse'
+              : 'bg-amber-50 text-amber-700 border-amber-150'
+          }`}>
+            {paystackPublicKey && paystackPublicKey.trim().startsWith('pk_') ? '● Paystack Gateway Connected' : '○ Sandbox simulator fallback active'}
+          </span>
+        </div>
+      </div>
+
+      <form onSubmit={handleSaveApiConfig} className="flex flex-col gap-5 w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Paystack Public Authorization Key (pk_test_... or pk_live_...)</label>
+            <div className="relative">
+              <input
+                id="paystack-pub-key-input"
+                type="text"
+                placeholder="pk_test_c962bda7bcde1bbf..."
+                value={paystackPublicKey}
+                onChange={(e) => setPaystackPublicKey(e.target.value)}
+                className="w-full p-2.5 pl-9 border border-slate-205 text-xs font-mono bg-slate-50 focus:bg-white rounded-xl outline-none"
+              />
+              <Sparkles className="absolute left-3.5 top-3.5 w-4 h-4 text-teal-500" />
+            </div>
+            <p className="text-[9px] text-slate-400 font-medium leading-normal">Required on client-side to render safe secure Inline standard checkout modal.</p>
+          </div>
+
+          <div className="flex flex-col gap-1.5 align-top">
+            <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Paystack Secret Authorization Key (sk_test_... or sk_live_...)</label>
+            <div className="relative">
+              <input
+                id="paystack-secret-key-input"
+                type={showPaystackSecret ? "text" : "password"}
+                placeholder="sk_test_..."
+                value={paystackSecretKey}
+                onChange={(e) => setPaystackSecretKey(e.target.value)}
+                className="w-full p-2.5 pl-9 pr-10 border border-slate-205 text-xs font-mono bg-slate-50 focus:bg-white rounded-xl outline-none font-bold text-slate-800"
+              />
+              <KeyRound className="absolute left-3.5 top-3.5 w-4 h-4 text-emerald-500" />
+              <button
+                type="button"
+                onClick={() => setShowPaystackSecret(!showPaystackSecret)}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-655 p-1 font-sans"
+              >
+                {showPaystackSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-[9px] text-slate-400 font-medium leading-normal">Retained on secure server-side to verify references, webhook notifications & prevent fraud.</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 pt-1">
+          <button
+            id="save-paystack-keys-btn"
+            type="submit"
+            disabled={isSavingApi}
+            className="px-5 py-2.5 bg-slate-900 border border-slate-950 hover:bg-black text-white text-xs font-bold font-display rounded-xl flex items-center gap-2 shadow-sm hover:shadow active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+          >
+            {isSavingApi ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Saving Gateway Profile...
+              </>
+            ) : 'Save Gateway Configurations'}
+          </button>
+        </div>
+      </form>
+
+      <div className="p-3.5 bg-teal-50/40 border border-teal-101 rounded-2xl flex flex-col gap-1.5 text-[10px] text-slate-500 leading-relaxed font-sans">
+        <span className="font-extrabold text-teal-800 uppercase tracking-widest text-[9px] block">Webhooks Delivery Url</span>
+        <div className="bg-white border border-slate-100 p-2.5 rounded-lg font-mono text-[9px] text-slate-600 select-all overflow-x-auto whitespace-nowrap border-dashed">
+          {window.location.origin}/api/paystack/webhook
+        </div>
+        <span>
+          <strong>Webhooks Notice:</strong> Copy this URL to your official Paystack Dashboard to continuously intercept real successful transaction webhooks automatically.
         </span>
       </div>
     </div>

@@ -156,18 +156,18 @@ export const AirtimeAndDataPanel: React.FC<AirtimeDataPanelProps> = ({
   };
 
   return (
-    <div className="flex flex-col gap-6" id="airtime-data-feature">
-      {/* Upper Mode Selector tabs */}
-      <div className="bg-slate-100 p-1.5 rounded-2xl flex max-w-md w-full">
+    <div className="flex flex-col gap-6 animate-fade-in-up" id="airtime-data-feature">
+      {/* Upper Mode Selector tabs - Premium Silk look */}
+      <div className="bg-slate-200/50 backdrop-blur-md p-1 border border-[#E5E2DA]/60 rounded-2xl flex max-w-md w-full">
         <button
           id="mode-airtime-tab"
           onClick={() => {
             setActiveMode('airtime');
             setSelectedPlanId('');
           }}
-          className={`flex-1 py-3 text-sm font-bold font-display rounded-xl transition-all flex items-center justify-center gap-2 ${
+          className={`flex-1 py-3 text-xs sm:text-sm font-black font-display rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeMode === 'airtime' 
-              ? 'bg-white text-slate-950 shadow-sm' 
+              ? 'bg-white text-slate-950 shadow-sm border border-[#E5E2DA]/40' 
               : 'text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -182,9 +182,9 @@ export const AirtimeAndDataPanel: React.FC<AirtimeDataPanelProps> = ({
             const firstPlan = DATA_PLANS[selectedNetwork].find((p) => p.category === activePlanCategory);
             if (firstPlan) setSelectedPlanId(firstPlan.id);
           }}
-          className={`flex-1 py-3 text-sm font-bold font-display rounded-xl transition-all flex items-center justify-center gap-2 ${
+          className={`flex-1 py-3 text-xs sm:text-sm font-black font-display rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeMode === 'data' 
-              ? 'bg-white text-slate-950 shadow-sm' 
+              ? 'bg-white text-slate-950 shadow-sm border border-[#E5E2DA]/40' 
               : 'text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -192,23 +192,23 @@ export const AirtimeAndDataPanel: React.FC<AirtimeDataPanelProps> = ({
           Buy Data (Internet)
         </button>
       </div>
-
+ 
       {/* Main card panel layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Form controls */}
-        <form onSubmit={handleSubmit} className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col gap-6">
-          <div className="flex items-center gap-2 border-b border-slate-50 pb-3">
-            <span className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-              {activeMode === 'airtime' ? <Phone className="w-5 h-5" /> : <Database className="w-5 h-5" />}
+        <form onSubmit={handleSubmit} className="lg:col-span-2 bg-white/90 rounded-3xl border border-[#E5E2DA]/70 shadow-[0_12px_44px_-10px_rgba(115,108,92,0.04)] p-6 sm:p-8 flex flex-col gap-6">
+          <div className="flex items-center gap-2.5 border-b border-slate-50 pb-4">
+            <span className="p-2.5 bg-emerald-50 text-emerald-600 border border-emerald-150 rounded-xl">
+              {activeMode === 'airtime' ? <Phone className="w-5 h-5 text-emerald-700" /> : <Database className="w-5 h-5 text-emerald-700" />}
             </span>
             <div>
-              <h2 className="text-sm font-bold text-slate-800 font-display">
+              <h2 className="text-sm font-black text-slate-900 font-display uppercase tracking-wide">
                 {activeMode === 'airtime' ? 'Instant Airtime Top-Up' : 'Instant High-Speed Data Bundles'}
               </h2>
-              <p className="text-[11px] text-slate-400 font-medium">Recharge your phone line in 5 seconds flat.</p>
+              <p className="text-[10px] text-slate-400 font-medium">Recharge your phone line in 5 seconds flat with automated delivery.</p>
             </div>
           </div>
-
+ 
           {/* Telco Operator Choice */}
           <div className="flex flex-col gap-2">
             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display">
@@ -224,15 +224,15 @@ export const AirtimeAndDataPanel: React.FC<AirtimeDataPanelProps> = ({
                     setSelectedNetwork(telco.name);
                     setSelectedPlanId('');
                   }}
-                  className={`relative p-3.5 border-2 rounded-xl text-center flex flex-col items-center justify-center font-display font-black tracking-wide text-xs transition-all active:scale-95 ${
+                  className={`relative p-4 border rounded-2xl text-center flex flex-col items-center justify-center font-display font-black tracking-wide text-xs transition-all duration-300 active:scale-95 cursor-pointer ${
                     selectedNetwork === telco.name
-                      ? `${telco.borderColor} ${telco.brandColor} shadow-md`
-                      : 'border-slate-100 bg-slate-50/50 text-slate-550 hover:bg-slate-50'
+                      ? `${telco.borderColor} ${telco.brandColor} shadow-sm border-2 scale-[1.02]`
+                      : 'border-[#E5E2DA]/90 bg-[#FAF9F6]/50 text-slate-600 hover:bg-white hover:border-slate-400'
                   }`}
                 >
                   {telco.name}
                   {selectedNetwork === telco.name && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-slate-900 border border-white text-white p-0.5 rounded-full">
+                    <span className="absolute -top-1.5 -right-1.5 bg-slate-900 border border-white text-white p-0.5 rounded-full shadow">
                       <Check className="w-2.5 h-2.5 stroke-[3]" />
                     </span>
                   )}

@@ -917,7 +917,12 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans antialiased text-slate-800">
+    <div className="min-h-screen bg-[#FAF9F6] flex flex-col font-sans antialiased text-slate-800 relative overflow-x-hidden selection:bg-emerald-100 selection:text-emerald-950 z-10">
+      
+      {/* Luxurious Silk Decorative Background Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[55%] rounded-full bg-gradient-to-tr from-rose-100/20 via-amber-50/25 to-teal-50/20 blur-[110px] pointer-events-none animate-silk-drift select-none -z-10" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[50%] rounded-full bg-gradient-to-br from-emerald-50/20 via-sky-100/15 to-indigo-100/15 blur-[120px] pointer-events-none animate-pulse-slow select-none -z-10" />
+      <div className="absolute top-[40%] left-[25%] w-[30vh] h-[30vh] rounded-full bg-cream-100/20 blur-[130px] pointer-events-none select-none -z-10" />
       
       {/* Alert Banner framework */}
       <AlertToast toasts={toasts} removeToast={removeToast} />
@@ -970,21 +975,21 @@ export default function App() {
 
       {!isAuthenticated ? (
         /* ================= AUTH / LOGIN CARD PORTAL ================= */
-        <div className="flex-grow flex items-center justify-center p-4 bg-gradient-to-br from-slate-100 via-white to-indigo-50/30">
+        <div className="flex-grow flex items-center justify-center p-6 relative z-10 min-h-[90vh]">
           <div 
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden"
-            style={{ animation: 'bounceUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)' }}
+            className="w-full max-w-md bg-white/95 rounded-[2rem] border border-[#E1DED5] shadow-[0_24px_80px_-15px_rgba(115,108,92,0.12)] hover:shadow-[0_32px_96px_-12px_rgba(115,108,92,0.16)] transition-all duration-300 backdrop-blur-xl overflow-hidden"
+            style={{ animation: 'bounce-in 0.6s cubic-bezier(0.16, 1, 0.3, 1)' }}
           >
-            {/* Colored top bar styling */}
-            <div className="bg-slate-900 px-8 py-6 text-white text-center relative overflow-hidden">
-              <div className="absolute right-0 top-0 w-24 h-24 bg-indigo-500/20 rounded-full blur-xl" />
-              <div className="absolute left-0 bottom-0 w-20 h-20 bg-emerald-500/10 rounded-full blur-lg" />
+            {/* Colored top bar styling - Premium, luxurious silky deep finish */}
+            <div className="bg-slate-950 px-8 py-8 text-white text-center relative overflow-hidden border-b border-white/[0.04]">
+              <div className="absolute right-0 top-0 w-32 h-32 bg-emerald-500/15 rounded-full blur-2xl" />
+              <div className="absolute left-0 bottom-0 w-24 h-24 bg-amber-500/10 rounded-full blur-xl" />
               
-              <h2 className="text-3xl font-black font-display tracking-tight text-white flex items-center justify-center gap-1">
-                Wavie <span className="text-amber-400 animate-pulse">⚡</span>
+              <h2 className="text-3vw sm:text-3xl font-extrabold font-display tracking-tight text-white flex items-center justify-center gap-1.5 animate-bounce-slow">
+                Wavie <span className="text-emerald-400">⚡</span>
               </h2>
-              <p className="text-xs text-indigo-200 mt-1 font-medium font-display tracking-wide uppercase">
-                Nigeria&apos;s Smartest Billing Wallet
+              <p className="text-[10px] text-emerald-305/90 mt-1.5 font-bold font-display tracking-widest uppercase">
+                Nigeria&apos;s Premium Billing Wallet
               </p>
             </div>
 
@@ -1476,15 +1481,15 @@ export default function App() {
         <div className="flex-grow flex flex-col md:flex-row">
           
           {/* DESKTOP SIDEBAR NAVIGATION */}
-          <aside className="hidden md:flex flex-col w-64 bg-white p-6 border-r border-slate-200 justify-between">
+          <aside className="hidden md:flex flex-col w-64 bg-white/80 backdrop-blur-xl p-6 border-r border-[#E5E2DA]/90 justify-between relative z-10">
             <div className="flex flex-col gap-8">
-              {/* Logo */}
-              <div className="flex items-center gap-2 mb-2 px-2">
-                <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
-                  <div className="w-4 h-4 bg-white rounded-full"></div>
+              {/* Logo - Sleek Luxury Branding */}
+              <div className="flex items-center gap-2.5 mb-2 px-2 select-none">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-md shadow-emerald-500/10">
+                  <span className="text-white text-xs font-black font-display">W</span>
                 </div>
-                <span className="text-xl font-bold font-display tracking-tight text-slate-900">
-                  Wavie
+                <span className="text-xl font-black font-display tracking-tight text-slate-900 flex items-center gap-1">
+                  Wavie<span className="text-emerald-500 text-xs font-extrabold font-mono">•</span>
                 </span>
               </div>
 
@@ -1495,10 +1500,10 @@ export default function App() {
                     key={item.id}
                     id={`sidebar-tab-${item.id}`}
                     onClick={() => setActiveTab(item.id as ActiveTab)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-semibold font-sans transition-colors text-left ${
+                    className={`flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-xs font-bold font-sans transition-all duration-300 text-left relative overflow-hidden active:scale-98 cursor-pointer ${
                       activeTab === item.id
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : 'text-slate-600 hover:bg-slate-50'
+                        ? 'bg-emerald-600/10 text-emerald-700 border-l-4 border-emerald-500'
+                        : 'text-slate-600 hover:bg-slate-200/50 hover:text-slate-850'
                     }`}
                   >
                     {item.icon}
@@ -1526,11 +1531,11 @@ export default function App() {
           <main className="flex-grow flex flex-col pb-20 md:pb-6 max-w-7xl mx-auto w-full px-4 md:px-6 py-6 overflow-x-hidden">
             
             {/* UNIFIED TOP BAR FOR NAV, USER, NOTIFICATIONS (Top Left Focus Navigation, Top Right Actions) */}
-            <header className="flex items-center justify-between gap-2.5 pb-4 mb-6 border-b border-slate-205 w-full min-w-0">
+            <header className="flex items-center justify-between gap-2.5 pb-4 mb-6 border-b border-[#E5E2DA]/80 w-full min-w-0 relative z-[20]">
                {/* Left side: Navigation links row */}
                <div className="flex items-center min-w-0">
-                  {/* Top-left Quick-Navigation Row */}
-                  <nav className="flex items-center gap-1 bg-slate-100 p-0.5 sm:p-1 rounded-full border border-slate-200 overflow-x-auto no-scrollbar scroll-smooth">
+                  {/* Top-left Quick-Navigation Row - Silky Glass rounded container */}
+                  <nav className="flex items-center gap-1 bg-slate-200/50 backdrop-blur-md p-1 rounded-full border border-[#E5E2DA]/60 overflow-x-auto no-scrollbar scroll-smooth">
                     {menuItems.slice(0, 4).map((item) => (
                       <button
                         key={item.id}
@@ -1539,10 +1544,10 @@ export default function App() {
                           setActiveTab(item.id as ActiveTab);
                           setShowNotifications(false);
                         }}
-                        className={`flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold font-sans transition-all active:scale-95 cursor-pointer whitespace-nowrap ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-[10px] sm:text-xs font-black font-sans transition-all duration-300 active:scale-95 cursor-pointer whitespace-nowrap ${
                           activeTab === item.id
-                            ? 'bg-slate-900 text-white shadow-sm'
-                            : 'text-slate-650 hover:bg-slate-200'
+                            ? 'bg-slate-950 text-white shadow-md border border-slate-900'
+                            : 'text-slate-600 hover:bg-white hover:text-slate-950 hover:shadow-sm'
                         }`}
                       >
                         {item.icon}
