@@ -109,7 +109,22 @@ async function startServer() {
     }
 
     try {
-      let user = await db('users').where({ email: String(email).trim() }).first();
+      const targetEmail = String(email).trim();
+      const targetPhone = String(phone).trim();
+
+      // Detect and block multiple registration from existing email address with active credentials
+      const existingEmailUser = await db('users').where({ email: targetEmail }).first();
+      if (existingEmailUser && existingEmailUser.password && existingEmailUser.password.trim() !== '') {
+        return res.status(400).json({ error: 'A registered account already exists with this email address. Please proceed to Login.' });
+      }
+
+      // Detect and block multiple registration from existing phone number with active credentials matching other users
+      const existingPhoneUser = await db('users').where({ phone: targetPhone }).first();
+      if (existingPhoneUser && existingPhoneUser.password && existingPhoneUser.password.trim() !== '' && existingPhoneUser.email !== targetEmail) {
+        return res.status(400).json({ error: 'This phone number is already registered to another user account. Please use a different phone number.' });
+      }
+
+      let user = await db('users').where({ email: targetEmail }).first();
       
       const cleanPin = String(transactionPin || '1111').trim().substring(0, 4);
       const cleanPassword = String(password || '').trim();
