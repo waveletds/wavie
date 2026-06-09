@@ -23,8 +23,12 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
   addToast,
 }) => {
   // Sagecloud API hub integration configuration states
-  const [sagecloudApiKey, setSagecloudApiKey] = useState<string>('');
-  const [sagecloudApiUrl, setSagecloudApiUrl] = useState<string>('https://api.sagecloud.ng/v1');
+  const [sagecloudApiKey, setSagecloudApiKey] = useState<string>(() => {
+    return localStorage.getItem(`topup_sagecloud_api_key_${user.email}`) || '';
+  });
+  const [sagecloudApiUrl, setSagecloudApiUrl] = useState<string>(() => {
+    return localStorage.getItem(`topup_sagecloud_api_url_${user.email}`) || 'https://api.sagecloud.ng/v1';
+  });
   const [isTestingApi, setIsTestingApi] = useState<boolean>(false);
   const [isSavingApi, setIsSavingApi] = useState<boolean>(false);
   const [apiTestResult, setApiTestResult] = useState<{
@@ -35,7 +39,17 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
   } | null>(null);
 
   // Simulated Git commits states & controls
-  const [gitCommits, setGitCommits] = useState<any[]>([]);
+  const [gitCommits, setGitCommits] = useState<any[]>(() => {
+    const saved = localStorage.getItem(`topup_git_commits_${user.email}`);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // fallback
+      }
+    }
+    return [];
+  });
   const [commitMessage, setCommitMessage] = useState<string>('');
   const [isCommitting, setIsCommitting] = useState<boolean>(false);
   const [selectedCommitFiles, setSelectedCommitFiles] = useState<string>('server.ts, src/components/SettingsConfig.tsx, src/db/sqlite.ts');
@@ -48,10 +62,19 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
         const data = await response.json();
         if (data.success && data.commits) {
           setGitCommits(data.commits);
+          localStorage.setItem(`topup_git_commits_${user.email}`, JSON.stringify(data.commits));
         }
       }
     } catch (err) {
       console.error('Failed to load simulated commits:', err);
+      const saved = localStorage.getItem(`topup_git_commits_${user.email}`);
+      if (saved) {
+        try {
+          setGitCommits(JSON.parse(saved));
+        } catch (e) {
+          // silent fallback
+        }
+      }
     }
   };
 
@@ -65,6 +88,8 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
           if (data.success && data.config) {
             setSagecloudApiKey(data.config.sagecloud_api_key || '');
             setSagecloudApiUrl(data.config.sagecloud_api_url || 'https://api.sagecloud.ng/v1');
+            localStorage.setItem(`topup_sagecloud_api_key_${user.email}`, data.config.sagecloud_api_key || '');
+            localStorage.setItem(`topup_sagecloud_api_url_${user.email}`, data.config.sagecloud_api_url || 'https://api.sagecloud.ng/v1');
           }
         }
       } catch (err) {
@@ -82,13 +107,36 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
       return;
     }
     setIsCommitting(true);
+
+    // Create a robust offline-fallback commit structure
+    const hashChars = '0123456789abcdef';
+    let randomHash = '';
+    for (let i = 0; i < 40; i++) {
+      randomHash += hashChars[Math.floor(Math.random() * 16)];
+    }
+    const filesList = selectedCommitFiles || 'server.ts, src/components/SettingsConfig.tsx, src/db/sqlite.ts';
+    const newCommit = {
+      id: Date.now(),
+      user_email: user.email,
+      commit_hash: randomHash,
+      message: commitMessage.trim(),
+      files_changed: filesList,
+      timestamp: new Date().toISOString(),
+      status: 'PUSHED'
+    };
+
+    // Keep state updated optimistically for instant response
+    const nextCommits = [newCommit, ...gitCommits];
+    setGitCommits(nextCommits);
+    localStorage.setItem(`topup_git_commits_${user.email}`, JSON.stringify(nextCommits));
+
     try {
       const response = await fetch('/api/git/commit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: user.email,
-          message: commitMessage,
+          message: commitMessage.trim(),
           files: selectedCommitFiles
         })
       });
@@ -100,13 +148,15 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
           setCommitMessage('');
           fetchGitCommits();
         } else {
-          addToast(data.error || 'Commit failed.', 'error');
+          addToast(data.error || 'Commit status sync error.', 'warning');
         }
       } else {
-        addToast('Failed to connect to backend commit simulation.', 'error');
+        addToast('Saved edit revision locally in offline storage!', 'success');
+        setCommitMessage('');
       }
-    } catch (e: any) {
-      addToast(`Error adding commit: ${e.message}`, 'error');
+    } catch (err: any) {
+      addToast('Saved edit revision locally in offline storage!', 'success');
+      setCommitMessage('');
     } finally {
       setIsCommitting(false);
     }
@@ -115,6 +165,11 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
   const handleSaveApiConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingApi(true);
+
+    // Dynamic instant save to offline local persistence layers
+    localStorage.setItem(`topup_sagecloud_api_key_${user.email}`, sagecloudApiKey);
+    localStorage.setItem(`topup_sagecloud_api_url_${user.email}`, sagecloudApiUrl);
+
     try {
       const response = await fetch('/api/user/vtu-config', {
         method: 'POST',
@@ -136,10 +191,10 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
           addToast(data.error || 'Failed to update remote Sagecloud settings.', 'error');
         }
       } else {
-        addToast('Http Server communication error.', 'error');
+        addToast('Sagecloud configurations saved in offline local memory.', 'success');
       }
-    } catch (e: any) {
-      addToast(`Error saving configuration: ${e.message}`, 'error');
+    } catch (err: any) {
+      addToast('Sagecloud configurations saved in offline local memory.', 'success');
     } finally {
       setIsSavingApi(false);
     }

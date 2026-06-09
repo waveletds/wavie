@@ -255,28 +255,132 @@ export default function App() {
         try {
           const userEmail = encodeURIComponent(user.email);
           
-          // 1. Fetch/Create User
+          // 1. Fetch/Create User on backend SQL DB
           const userRes = await fetch(`/api/user?email=${userEmail}`);
           const userData = await userRes.json();
+          let serverUser = null;
           if (userData.success && userData.user) {
-            setUser(userData.user);
+            serverUser = userData.user;
           }
 
-          // 2. Fetch Transactions
+          // 2. Fetch Transactions from backend SQL DB
           const txsRes = await fetch(`/api/transactions?email=${userEmail}`);
           const txsData = await txsRes.json();
+          let serverTxs: Transaction[] = [];
           if (txsData.success && txsData.transactions) {
-            setTransactions(txsData.transactions);
+            serverTxs = txsData.transactions;
           }
 
-          // 3. Fetch Beneficiaries
+          // 3. Fetch Beneficiaries from backend SQL DB
           const bensRes = await fetch(`/api/beneficiaries?email=${userEmail}`);
           const bensData = await bensRes.json();
+          let serverBens: SavedBeneficiary[] = [];
           if (bensData.success && bensData.beneficiaries) {
-            setBeneficiaries(bensData.beneficiaries);
+            serverBens = bensData.beneficiaries;
           }
 
-          addToast('Connected to persistent SQL database', 'success');
+          let hasOfflineChanges = false;
+
+          // A. Sync offline-created transactions that exist locally but not on the server database
+          const unsyncedTxs = transactions.filter(
+            (lTx) => !serverTxs.some((sTx) => sTx.id === lTx.id || sTx.reference === lTx.reference)
+          );
+
+          if (unsyncedTxs.length > 0) {
+            console.log(`Syncing ${unsyncedTxs.length} offline transactions online...`);
+            for (const tx of unsyncedTxs) {
+              try {
+                // Determine transaction balance impact
+                await fetch('/api/transactions/create', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: user.email, tx })
+                });
+                hasOfflineChanges = true;
+              } catch (err) {
+                console.error('Failed to sync transaction online:', err);
+              }
+            }
+          }
+
+          // B. Sync offline-created beneficiaries
+          const unsyncedBens = beneficiaries.filter(
+            (lBen) => !serverBens.some((sBen) => sBen.id === lBen.id)
+          );
+
+          if (unsyncedBens.length > 0) {
+            console.log(`Syncing ${unsyncedBens.length} offline beneficiaries online...`);
+            for (const beneficiary of unsyncedBens) {
+              try {
+                await fetch('/api/beneficiaries/create', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: user.email, beneficiary })
+                });
+                hasOfflineChanges = true;
+              } catch (err) {
+                console.error('Failed to sync beneficiary online:', err);
+              }
+            }
+          }
+
+          // C. Align local profile registration fields (name, phone, pin, balance) to SQL server configuration
+          if (serverUser) {
+            const hasProfileMismatch = 
+              serverUser.name !== user.name || 
+              serverUser.phone !== user.phone || 
+              serverUser.transactionPin !== user.transactionPin ||
+              Math.abs(serverUser.walletBalance - user.walletBalance) > 1;
+
+            if (hasProfileMismatch && !hasOfflineChanges) {
+              try {
+                const updateRes = await fetch('/api/user/update', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    email: user.email,
+                    name: user.name,
+                    phone: user.phone,
+                    transactionPin: user.transactionPin,
+                    walletBalance: user.walletBalance,
+                  })
+                });
+                const updateData = await updateRes.json();
+                if (updateData.success && updateData.user) {
+                  serverUser = updateData.user;
+                  hasOfflineChanges = true;
+                }
+              } catch (err) {
+                console.error('Failed to sync offline user details online:', err);
+              }
+            }
+          }
+
+          // D. Final state loading sequence depending on synchronizer outputs
+          if (hasOfflineChanges) {
+            // Re-fetch clean consolidated records after dynamic online syncing
+            const finalUserRes = await fetch(`/api/user?email=${userEmail}`);
+            const finalUserData = await finalUserRes.json();
+            if (finalUserData.success && finalUserData.user) {
+              setUser(finalUserData.user);
+            }
+            const finalTxsRes = await fetch(`/api/transactions?email=${userEmail}`);
+            const finalTxsData = await finalTxsRes.json();
+            if (finalTxsData.success && finalTxsData.transactions) {
+              setTransactions(finalTxsData.transactions);
+            }
+            const finalBensRes = await fetch(`/api/beneficiaries?email=${userEmail}`);
+            const finalBensData = await finalBensRes.json();
+            if (finalBensData.success && finalBensData.beneficiaries) {
+              setBeneficiaries(finalBensData.beneficiaries);
+            }
+            addToast('Offline transaction details, records, and state successfully consolidated online!', 'success');
+          } else if (serverUser) {
+            setUser(serverUser);
+            setTransactions(serverTxs);
+            setBeneficiaries(serverBens);
+            addToast('Connected to persistent SQL database', 'success');
+          }
         } catch (error) {
           console.error('Backend state sync failed:', error);
           addToast('Database offline, running with offline local fallback storage.', 'warning');
