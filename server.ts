@@ -488,7 +488,9 @@ async function startServer() {
           sagecloud_api_key: null,
           sagecloud_api_url: 'https://api.sagecloud.ng/v1',
           paystack_public_key: null,
-          paystack_secret_key: null
+          paystack_secret_key: null,
+          smm_api_key: null,
+          smm_api_url: 'https://easy-smm-panel.com/api/v2'
         });
         config = await db('api_configs').where({ user_email: String(email) }).first();
       }
@@ -500,7 +502,7 @@ async function startServer() {
 
   // Save configurations
   app.post('/api/user/vtu-config', async (req: Request, res: Response, next: NextFunction) => {
-    const { email, sagecloudApiKey, sagecloudApiUrl, paystackPublicKey, paystackSecretKey } = req.body;
+    const { email, sagecloudApiKey, sagecloudApiUrl, paystackPublicKey, paystackSecretKey, smmApiKey, smmApiUrl } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Email parameter required' });
     }
@@ -513,14 +515,18 @@ async function startServer() {
           sagecloud_api_key: sagecloudApiKey || null,
           sagecloud_api_url: sagecloudApiUrl || 'https://api.sagecloud.ng/v1',
           paystack_public_key: paystackPublicKey || null,
-          paystack_secret_key: paystackSecretKey || null
+          paystack_secret_key: paystackSecretKey || null,
+          smm_api_key: smmApiKey || null,
+          smm_api_url: smmApiUrl || 'https://easy-smm-panel.com/api/v2'
         });
       } else {
         await db('api_configs').where({ user_email: email }).update({
           sagecloud_api_key: sagecloudApiKey !== undefined ? sagecloudApiKey : null,
           sagecloud_api_url: sagecloudApiUrl !== undefined ? sagecloudApiUrl : 'https://api.sagecloud.ng/v1',
           paystack_public_key: paystackPublicKey !== undefined ? paystackPublicKey : null,
-          paystack_secret_key: paystackSecretKey !== undefined ? paystackSecretKey : null
+          paystack_secret_key: paystackSecretKey !== undefined ? paystackSecretKey : null,
+          smm_api_key: smmApiKey !== undefined ? smmApiKey : null,
+          smm_api_url: smmApiUrl !== undefined ? smmApiUrl : 'https://easy-smm-panel.com/api/v2'
         });
       }
       const updatedConfig = await db('api_configs').where({ user_email: email }).first();
@@ -687,9 +693,14 @@ async function startServer() {
       const config = await db('api_configs').where({ user_email: email }).first();
       const apiKey = config ? config.sagecloud_api_key : null;
       const apiUrl = config ? config.sagecloud_api_url : 'https://api.sagecloud.ng/v1';
+      const smmApiKey = config ? config.smm_api_key : null;
+      const smmApiUrl = config ? config.smm_api_url : 'https://easy-smm-panel.com/api/v2';
+
+      const isLiveSagecloud = (apiKey && apiKey.trim() !== '' && !apiKey.toLowerCase().includes('sandbox') && !apiKey.toLowerCase().includes('mock') && !apiKey.toLowerCase().includes('test') && tx.type !== 'smm');
+      const isLiveSmm = (tx.type === 'smm' && smmApiKey && smmApiKey.trim() !== '' && !smmApiKey.toLowerCase().includes('sandbox') && !smmApiKey.toLowerCase().includes('mock') && !smmApiKey.toLowerCase().includes('test'));
 
       // 2. Call live Sagecloud API if a real API Key is provided
-      if (apiKey && apiKey.trim() !== '' && !apiKey.toLowerCase().includes('sandbox') && !apiKey.toLowerCase().includes('mock') && !apiKey.toLowerCase().includes('test')) {
+      if (isLiveSagecloud) {
         console.log(`[SAGECLOUD_API] Routing live ${tx.type} transaction via Sagecloud.ng!`);
         
         let pathStr = '/airtime';
@@ -785,6 +796,53 @@ async function startServer() {
           console.error(`[SAGECLOUD_EXCEPTION] Network failure calling Sagecloud VTU:`, err);
           return res.status(500).json({
             error: `Communication failed with Sagecloud VTU gateway server: ${err.message}`
+          });
+        }
+      } else if (isLiveSmm) {
+        console.log(`[SMM_PANEL_API] Routing live SMM transaction via: ${smmApiUrl}`);
+        try {
+          const params = new URLSearchParams();
+          params.append('key', smmApiKey!);
+          params.append('action', 'add');
+          params.append('service', String(tx.details?.serviceId || tx.details?.planId || '100'));
+          params.append('link', tx.recipient);
+          params.append('quantity', String(tx.details?.quantity || '100'));
+
+          const gatewayResponse = await fetch(smmApiUrl!, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: params.toString(),
+            signal: AbortSignal.timeout(15000)
+          });
+
+          if (!gatewayResponse.ok) {
+            const errBody = await gatewayResponse.text();
+            console.error(`[SMM_PANEL_ERROR] Request failed with status ${gatewayResponse.status}: ${errBody}`);
+            return res.status(400).json({
+              error: `SMM Panel Gateway Error (HTTP ${gatewayResponse.status}): ${errBody}`
+            });
+          }
+
+          const responseData = await gatewayResponse.json();
+          console.log(`[SMM_PANEL_SUCCESS] API response:`, JSON.stringify(responseData));
+
+          if (responseData.error) {
+            return res.status(400).json({
+              error: `SMM Reseller Panel Error: ${responseData.error}`
+            });
+          }
+
+          finalDetails.trackingId = responseData.order || responseData.order_id || 'BOOST-' + Math.floor(100000 + Math.random() * 899999);
+          finalDetails.status = 'PENDING';
+          finalDetails.estimatedStart = '15 - 45 minutes';
+          finalDetails.processedBy = 'SMM Live Merchant Panel';
+          finalDetails.gatewayResponseCode = 'SUCCESS';
+        } catch (err: any) {
+          console.error(`[SMM_PANEL_EXCEPTION] Network failure calling SMM panel:`, err);
+          return res.status(500).json({
+            error: `Communication failed with SMM reseller gateway server: ${err.message}`
           });
         }
       } else {

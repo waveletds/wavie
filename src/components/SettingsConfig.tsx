@@ -37,8 +37,15 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
   const [paystackSecretKey, setPaystackSecretKey] = useState<string>(() => {
     return localStorage.getItem(`topup_paystack_secret_key_${user.email}`) || '';
   });
+  const [smmApiKey, setSmmApiKey] = useState<string>(() => {
+    return localStorage.getItem(`topup_smm_api_key_${user.email}`) || '';
+  });
+  const [smmApiUrl, setSmmApiUrl] = useState<string>(() => {
+    return localStorage.getItem(`topup_smm_api_url_${user.email}`) || 'https://easy-smm-panel.com/api/v2';
+  });
   const [showPaystackSecret, setShowPaystackSecret] = useState<boolean>(false);
   const [showSagecloudKey, setShowSagecloudKey] = useState<boolean>(false);
+  const [showSmmKey, setShowSmmKey] = useState<boolean>(false);
   const [isTestingApi, setIsTestingApi] = useState<boolean>(false);
   const [isSavingApi, setIsSavingApi] = useState<boolean>(false);
   const [apiTestResult, setApiTestResult] = useState<{
@@ -100,10 +107,14 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
             setSagecloudApiUrl(data.config.sagecloud_api_url || 'https://api.sagecloud.ng/v1');
             setPaystackPublicKey(data.config.paystack_public_key || '');
             setPaystackSecretKey(data.config.paystack_secret_key || '');
+            setSmmApiKey(data.config.smm_api_key || '');
+            setSmmApiUrl(data.config.smm_api_url || 'https://easy-smm-panel.com/api/v2');
             localStorage.setItem(`topup_sagecloud_api_key_${user.email}`, data.config.sagecloud_api_key || '');
             localStorage.setItem(`topup_sagecloud_api_url_${user.email}`, data.config.sagecloud_api_url || 'https://api.sagecloud.ng/v1');
             localStorage.setItem(`topup_paystack_public_key_${user.email}`, data.config.paystack_public_key || '');
             localStorage.setItem(`topup_paystack_secret_key_${user.email}`, data.config.paystack_secret_key || '');
+            localStorage.setItem(`topup_smm_api_key_${user.email}`, data.config.smm_api_key || '');
+            localStorage.setItem(`topup_smm_api_url_${user.email}`, data.config.smm_api_url || 'https://easy-smm-panel.com/api/v2');
           }
         }
       } catch (err) {
@@ -185,6 +196,8 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
     localStorage.setItem(`topup_sagecloud_api_url_${user.email}`, sagecloudApiUrl);
     localStorage.setItem(`topup_paystack_public_key_${user.email}`, paystackPublicKey);
     localStorage.setItem(`topup_paystack_secret_key_${user.email}`, paystackSecretKey);
+    localStorage.setItem(`topup_smm_api_key_${user.email}`, smmApiKey);
+    localStorage.setItem(`topup_smm_api_url_${user.email}`, smmApiUrl);
 
     try {
       const response = await fetch('/api/user/vtu-config', {
@@ -197,7 +210,9 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
           sagecloudApiKey: sagecloudApiKey,
           sagecloudApiUrl: sagecloudApiUrl,
           paystackPublicKey: paystackPublicKey,
-          paystackSecretKey: paystackSecretKey
+          paystackSecretKey: paystackSecretKey,
+          smmApiKey: smmApiKey,
+          smmApiUrl: smmApiUrl
         }),
       });
 
@@ -1010,6 +1025,98 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
         </div>
         <span>
           <strong>Webhooks Notice:</strong> Copy this URL to your official Paystack Dashboard to continuously intercept real successful transaction webhooks automatically.
+        </span>
+      </div>
+    </div>
+
+    {/* SMM Booster Reseller Panel API Integration Keys Configuration */}
+    <div className="bg-white rounded-2xl border border-slate-101 shadow-sm p-6 flex flex-col gap-6 w-full" id="smm-keys-config-area">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-50 pb-5">
+        <div className="flex items-start gap-3">
+          <div className="p-3 bg-violet-50 border border-violet-150 rounded-2xl text-violet-650 shrink-0">
+            <Sparkles className="w-4 h-4 text-violet-600" />
+          </div>
+          <div>
+            <h3 className="font-display font-black text-slate-900 text-sm tracking-wide uppercase flex items-center gap-1.5">
+              SMM Booster Reseller Panel API Integration
+            </h3>
+            <p className="text-[11px] text-slate-400 font-medium font-sans">
+              Connect external VIP Social Media Marketing (SMM) provider panels using a standard API v2 query protocol to fulfill automated orders.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border ${
+            smmApiKey && smmApiKey.trim() !== '' && !smmApiKey.toLowerCase().includes('sandbox')
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-150 animate-pulse'
+              : 'bg-amber-50 text-amber-700 border-amber-150'
+          }`}>
+            {smmApiKey && smmApiKey.trim() !== '' && !smmApiKey.toLowerCase().includes('sandbox') ? '● SMM Gateway Armed' : '○ Reseller fallback sandbox active'}
+          </span>
+        </div>
+      </div>
+
+      <form onSubmit={handleSaveApiConfig} className="flex flex-col gap-5 w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">SMM Provider Panel api-v2 Endpoint</label>
+            <div className="relative">
+              <input
+                id="smm-url-input"
+                type="url"
+                placeholder="https://easy-smm-panel.com/api/v2"
+                value={smmApiUrl}
+                onChange={(e) => setSmmApiUrl(e.target.value)}
+                className="w-full p-2.5 pl-9 border border-slate-205 text-xs font-mono bg-slate-50 focus:bg-white rounded-xl outline-none"
+                required
+              />
+              <Sparkles className="absolute left-3.5 top-3.5 w-4 h-4 text-violet-500" />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5 align-top">
+            <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">SMM API Key (Vendor Secret Key)</label>
+            <div className="relative">
+              <input
+                id="smm-key-input"
+                type={showSmmKey ? "text" : "password"}
+                placeholder="vip_smm_api_key_..."
+                value={smmApiKey}
+                onChange={(e) => setSmmApiKey(e.target.value)}
+                className="w-full p-2.5 pl-9 pr-10 border border-slate-205 text-xs font-mono bg-slate-50 focus:bg-white rounded-xl outline-none font-bold text-slate-800"
+              />
+              <KeyRound className="absolute left-3.5 top-3.5 w-4 h-4 text-violet-500" />
+              <button
+                type="button"
+                onClick={() => setShowSmmKey(!showSmmKey)}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-655 p-1 font-sans"
+              >
+                {showSmmKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 pt-1">
+          <button
+            id="save-smm-keys-btn"
+            type="submit"
+            disabled={isSavingApi}
+            className="px-5 py-2.5 bg-slate-900 border border-slate-950 hover:bg-black text-white text-xs font-bold font-display rounded-xl flex items-center gap-2 shadow-sm hover:shadow active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+          >
+            {isSavingApi ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Saving Provider Settings...
+              </>
+            ) : 'Save SMM Provider Configurations'}
+          </button>
+        </div>
+      </form>
+
+      <div className="p-3.5 bg-violet-50/40 border border-violet-100 rounded-2xl flex flex-col gap-1.5 text-[10px] text-slate-500 leading-relaxed font-sans">
+        <span>
+          <strong>VIP Reselling Profit Margin:</strong> SMM services are dispatched using the standard API v2 spec. Custom provider APIs execute in real-time, debiting your VIP vendor token and instantly routing requested actions.
         </span>
       </div>
     </div>

@@ -724,7 +724,13 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: user.email, tx: newTx, cashbackGained })
     })
-    .then(res => res.json())
+    .then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Server processing connection failed.');
+      }
+      return data;
+    })
     .then(data => {
       if (data.success && data.user) {
         setUser(data.user);
@@ -746,23 +752,17 @@ export default function App() {
         if (cashbackGained > 0) {
           addToast(`Instant cashback of ₦${cashbackGained.toFixed(2)} received and credited!`, 'success');
         }
+        setIsPinModalOpen(false);
+        setPendingPurchaseParams(null);
+        setIsReceiptModalOpen(true);
+        addToast('Transaction executed successfully!', 'success');
       }
     })
     .catch(err => {
-      console.error('Service API execution error:', err);
-      // Fallback offline handler
-      setUser((prev) => ({
-        ...prev,
-        walletBalance: prev.walletBalance - amount + cashbackGained,
-      }));
-      setTransactions((prev) => [newTx, ...prev]);
-      setActiveReceiptTx(newTx);
-    })
-    .finally(() => {
+      console.warn('VTU/SMM Service API returned failure:', err.message);
+      addToast(err.message || 'Verification Error during purchase.', 'error');
       setIsPinModalOpen(false);
       setPendingPurchaseParams(null);
-      setIsReceiptModalOpen(true);
-      addToast('Transaction executed successfully!', 'success');
     });
 
     // Save automatic beneficiaries if opted in

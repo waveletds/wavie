@@ -127,8 +127,10 @@ export async function runMigrations() {
       table.string('sagecloud_api_url').defaultTo('https://api.sagecloud.ng/v1').nullable();
       table.string('paystack_public_key').nullable();
       table.string('paystack_secret_key').nullable();
+      table.string('smm_api_key').nullable();
+      table.string('smm_api_url').defaultTo('https://easy-smm-panel.com/api/v2').nullable();
     });
-    console.log('✔ Migrated "api_configs" table with Paystack support.');
+    console.log('✔ Migrated "api_configs" table with Paystack & SMM support.');
   } else {
     // Add additional fields dynamically to handle runtime updates
     const hasPubKey = await db.schema.hasColumn('api_configs', 'paystack_public_key');
@@ -138,6 +140,14 @@ export async function runMigrations() {
         table.string('paystack_secret_key').nullable();
       });
       console.log('✔ Patched "api_configs" table with paystack_public_key & paystack_secret_key.');
+    }
+    const hasSmmFields = await db.schema.hasColumn('api_configs', 'smm_api_key');
+    if (!hasSmmFields) {
+      await db.schema.table('api_configs', (table) => {
+        table.string('smm_api_key').nullable();
+        table.string('smm_api_url').defaultTo('https://easy-smm-panel.com/api/v2').nullable();
+      });
+      console.log('✔ Patched "api_configs" table with smm_api_key & smm_api_url.');
     }
   }
 
