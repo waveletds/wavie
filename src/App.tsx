@@ -22,6 +22,7 @@ import { TransactionsList } from './components/TransactionsList';
 import { SettingsConfig } from './components/SettingsConfig';
 import { motion, AnimatePresence } from 'motion/react';
 import { MiaAssistant } from './components/MiaAssistant';
+import { PaymentLoadingState, PaymentStatus } from './components/PaymentLoadingState';
 
 // Mock Initial State builders
 const INITIAL_BENEFICIARIES: SavedBeneficiary[] = [
@@ -152,6 +153,13 @@ export default function App() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [activeReceiptTx, setActiveReceiptTx] = useState<Transaction | null>(null);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState<boolean>(false);
+
+  // Paystack Funding Status Trackers
+  const [isPayLoadingOpen, setIsPayLoadingOpen] = useState<boolean>(false);
+  const [payLoadingStatus, setPayLoadingStatus] = useState<PaymentStatus>('initializing');
+  const [payLoadingAmount, setPayLoadingAmount] = useState<number>(0);
+  const [payLoadingRef, setPayLoadingRef] = useState<string>('');
+  const [payLoadingError, setPayLoadingError] = useState<string>('');
 
   // Security Interceptor PIN variables
   const [isPinModalOpen, setIsPinModalOpen] = useState<boolean>(false);
@@ -802,7 +810,10 @@ export default function App() {
     const generatedRef = reference || `TN-DEP-${Math.floor(10000000 + Math.random() * 89999999)}`;
 
     const isPaystack = paymentMethod === 'paystack';
+    const isPaystackSim = paymentMethod === 'paystack_sim';
+    const isAnyPaystack = isPaystack || isPaystackSim;
     const endpoint = isPaystack ? '/api/paystack/verify' : '/api/wallet/fund';
+    
     const requestBody = isPaystack 
       ? { reference: generatedRef, email: user.email, amount }
       : {
@@ -813,54 +824,98 @@ export default function App() {
           description
         };
 
-    addToast(isPaystack ? 'Verifying payment with secure backend switch...' : 'Processing funding...', 'info');
+    if (isAnyPaystack) {
+      setPayLoadingAmount(amount);
+      setPayLoadingRef(generatedRef);
+      setPayLoadingError('');
+      setPayLoadingStatus('initializing');
+      setIsPayLoadingOpen(true);
 
-    fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    })
-    .then(res => {
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+      // Transition to authorizing stage to let users know card is engaging
+      setTimeout(() => {
+        setPayLoadingStatus('authorizing');
+      }, 700);
+    } else {
+      addToast('Processing funding...', 'info');
+    }
+
+    // Delay the actual verifying fetch by 1.2s so the handshake / authorization simulation renders smoothly
+    const fetchDelay = isAnyPaystack ? 1300 : 0;
+
+    setTimeout(() => {
+      if (isAnyPaystack) {
+        setPayLoadingStatus('verifying');
       }
-      return res.json();
-    })
-    .then(data => {
-      if (data.success && data.user) {
-        setUser(data.user);
-        if (data.transactions) {
-          setTransactions((prev) => {
-            const incomingIds = data.transactions.map((t: any) => t.id);
-            const filtered = prev.filter(t => !incomingIds.includes(t.id));
-            return [...data.transactions, ...filtered];
-          });
+
+      fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
         }
-        addToast(`Successfully funded wallet with ₦${amount.toLocaleString()}`, 'success');
-      } else {
-        throw new Error(data.error || 'Server rejected payment request');
-      }
-    })
-    .catch(err => {
-      console.error('Wallet funding api error:', err);
-      // Fallback
-      setUser((prev) => ({
-        ...prev,
-        walletBalance: prev.walletBalance + amount,
-      }));
-      const fallbackTx: Transaction = {
-        id: `tx_fund_${Date.now()}`,
-        type: 'funding',
-        amount,
-        fee: 0,
-        status: 'success',
-        timestamp: new Date().toISOString(),
-        description,
-        recipient: 'Primary wallet',
-        reference: generatedRef,
-      };
-      setTransactions((prev) => [fallbackTx, ...prev]);
-    });
+        return res.json();
+      })
+      .then(data => {
+        if (data.success && data.user) {
+          if (isAnyPaystack) {
+            setPayLoadingStatus('settlement');
+            // Give 1.4s for ledger settlement animation
+            setTimeout(() => {
+              setUser(data.user);
+              if (data.transactions) {
+                setTransactions((prev) => {
+                  const incomingIds = data.transactions.map((t: any) => t.id);
+                  const filtered = prev.filter(t => !incomingIds.includes(t.id));
+                  return [...data.transactions, ...filtered];
+                });
+              }
+              setPayLoadingStatus('success');
+              addToast(`Successfully funded wallet with ₦${amount.toLocaleString()}`, 'success');
+            }, 1400);
+          } else {
+            setUser(data.user);
+            if (data.transactions) {
+              setTransactions((prev) => {
+                const incomingIds = data.transactions.map((t: any) => t.id);
+                const filtered = prev.filter(t => !incomingIds.includes(t.id));
+                return [...data.transactions, ...filtered];
+              });
+            }
+            addToast(`Successfully funded wallet with ₦${amount.toLocaleString()}`, 'success');
+          }
+        } else {
+          throw new Error(data.error || 'Server rejected payment request');
+        }
+      })
+      .catch(err => {
+        console.error('Wallet funding api error:', err);
+        if (isAnyPaystack) {
+          setPayLoadingStatus('failed');
+          setPayLoadingError(err.message || 'Verification Error during purchase.');
+        } else {
+          // Fallback
+          setUser((prev) => ({
+            ...prev,
+            walletBalance: prev.walletBalance + amount,
+          }));
+          const fallbackTx: Transaction = {
+            id: `tx_fund_${Date.now()}`,
+            type: 'funding',
+            amount,
+            fee: 0,
+            status: 'success',
+            timestamp: new Date().toISOString(),
+            description,
+            recipient: 'Primary wallet',
+            reference: generatedRef,
+          };
+          setTransactions((prev) => [fallbackTx, ...prev]);
+        }
+      });
+    }, fetchDelay);
   };
 
   const handleWithdrawalOutflow = (amount: number, fee: number, description: string, details: any) => {
@@ -966,6 +1021,19 @@ export default function App() {
         }}
         transaction={activeReceiptTx}
         addToast={addToast}
+      />
+
+      {/* Paystack Payment Loading Indicator */}
+      <PaymentLoadingState
+        isOpen={isPayLoadingOpen}
+        status={payLoadingStatus}
+        amount={payLoadingAmount}
+        reference={payLoadingRef}
+        email={user.email}
+        errorMessage={payLoadingError}
+        onClose={() => {
+          setIsPayLoadingOpen(false);
+        }}
       />
 
       {isAuthenticated && (

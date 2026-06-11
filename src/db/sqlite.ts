@@ -197,9 +197,16 @@ async function seedDatabase() {
     await db('api_configs').insert({
       user_email: defaultEmail,
       sagecloud_api_key: null,
-      sagecloud_api_url: 'https://api.sagecloud.ng/v1'
+      sagecloud_api_url: 'https://api.sagecloud.ng/v1',
+      paystack_public_key: 'pk_live_26c21769a652b4bfd26b4f02d485c915d21fe69e'
     });
-    console.log('✔ Seeded default API configs entry.');
+    console.log('✔ Seeded default API configs entry with live Paystack key.');
+  } else {
+    // Ensure Paystack key is set to user's requested live production key
+    await db('api_configs').where({ user_email: defaultEmail }).update({
+      paystack_public_key: 'pk_live_26c21769a652b4bfd26b4f02d485c915d21fe69e'
+    });
+    console.log('✔ Updated API configs with requested live Paystack key.');
   }
 
   // Check transactions count

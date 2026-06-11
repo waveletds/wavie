@@ -162,7 +162,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
     const localPubKey = localStorage.getItem(`topup_paystack_public_key_${user.email}`);
     const pKey = (localPubKey && localPubKey.trim() !== '') 
       ? localPubKey.trim() 
-      : ((import.meta as any).env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_c962bda7bcde1bbf9fd6f801646271a067e2da5b');
+      : 'pk_live_26c21769a652b4bfd26b4f02d485c915d21fe69e';
 
     // If script loaded successfully, try real checkout
     if (scriptLoaded && pKey) {
