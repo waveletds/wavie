@@ -21,6 +21,8 @@ import { WalletAndBankPanel } from './components/WalletAndBankPanel';
 import { SmmBoosterPanel } from './components/SmmBoosterPanel';
 import { TransactionsList } from './components/TransactionsList';
 import { SettingsConfig } from './components/SettingsConfig';
+import { AdminTerminal } from './components/AdminTerminal';
+import { SuperAdminConsole } from './components/SuperAdminConsole';
 import { motion, AnimatePresence } from 'motion/react';
 import { MiaAssistant } from './components/MiaAssistant';
 import { PaymentLoadingState, PaymentStatus } from './components/PaymentLoadingState';
@@ -113,7 +115,13 @@ export default function App() {
   const [user, setUser] = useState<UserState>(() => {
     const saved = localStorage.getItem('topup_user');
     if (saved) {
-      try { return JSON.parse(saved); } catch (e) { /* fallback */ }
+      try { 
+        const parsed = JSON.parse(saved); 
+        if (parsed && parsed.email === 'iqleadsbloger@gmail.com') {
+          parsed.role = 'super_admin';
+        }
+        return parsed;
+      } catch (e) { /* fallback */ }
     }
     return {
       name: 'Olawale Joseph',
@@ -128,6 +136,7 @@ export default function App() {
       isPinSet: true,
       isWebAuthnEnabled: false,
       webAuthnCredentialId: '',
+      role: 'super_admin'
     };
   });
 
@@ -1003,7 +1012,7 @@ export default function App() {
     });
   };
 
-  const menuItems = [
+  const baseMenuItems = [
     { id: 'dashboard', label: dict.dashboard, icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'airtime', label: dict.airtime, icon: <Phone className="w-4 h-4" /> },
     { id: 'data', label: dict.data, icon: <Database className="w-4 h-4" /> },
@@ -1015,6 +1024,16 @@ export default function App() {
     { id: 'transactions', label: dict.transactions, icon: <History className="w-4 h-4" /> },
     { id: 'settings', label: dict.settings, icon: <Settings className="w-4 h-4" /> },
   ];
+
+  const adminMenuItems = (user.role === 'admin' || user.role === 'super_admin') 
+    ? [{ id: 'admin_dashboard', label: 'Admin Terminal', icon: <ShieldCheck className="w-4 h-4 text-rose-500" /> }]
+    : [];
+
+  const superAdminMenuItems = (user.role === 'super_admin')
+    ? [{ id: 'super_admin_dashboard', label: 'Super Admin OS', icon: <KeyRound className="w-4 h-4 text-violet-500" /> }]
+    : [];
+
+  const menuItems = [...baseMenuItems, ...adminMenuItems, ...superAdminMenuItems];
 
   return (
     <div className="min-h-screen bg-[#FAF9F6] flex flex-col font-sans antialiased text-slate-800 relative overflow-x-hidden selection:bg-emerald-100 selection:text-emerald-950 z-10">
@@ -1907,6 +1926,46 @@ export default function App() {
                       onLogout={() => {
                         setIsAuthenticated(false);
                         addToast('Securely logged out.', 'info');
+                      }}
+                    />
+                  )}
+
+                  {activeTab === 'admin_dashboard' && (
+                    <AdminTerminal
+                      currentUser={user}
+                      addToast={addToast}
+                      onRefreshUserData={() => {
+                        fetch('/api/auth/lookup', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ identifier: user.email })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                          if (data.success && data.exists && data.user) {
+                            setUser(prev => ({ ...prev, ...data.user }));
+                          }
+                        });
+                      }}
+                    />
+                  )}
+
+                  {activeTab === 'super_admin_dashboard' && (
+                    <SuperAdminConsole
+                      currentUser={user}
+                      addToast={addToast}
+                      onRefreshUserData={() => {
+                        fetch('/api/auth/lookup', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ identifier: user.email })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                          if (data.success && data.exists && data.user) {
+                            setUser(prev => ({ ...prev, ...data.user }));
+                          }
+                        });
                       }}
                     />
                   )}

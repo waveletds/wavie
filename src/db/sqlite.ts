@@ -50,9 +50,17 @@ export async function runMigrations() {
       table.integer('is_pin_set').defaultTo(1).notNullable(); // 1 = true, 0 = false
       table.integer('is_webauthn_enabled').defaultTo(0).notNullable();
       table.text('webauthn_credential_id').nullable();
+      table.string('role').defaultTo('user').notNullable(); // 'user', 'admin', 'super_admin'
     });
     console.log('✔ Migrated "users" table.');
   } else {
+    const hasRole = await db.schema.hasColumn('users', 'role');
+    if (!hasRole) {
+      await db.schema.alterTable('users', (table) => {
+        table.string('role').defaultTo('user').notNullable();
+      });
+      console.log('✔ Added role column to existing "users" table.');
+    }
     const hasWebauthnEnabled = await db.schema.hasColumn('users', 'is_webauthn_enabled');
     if (!hasWebauthnEnabled) {
       await db.schema.alterTable('users', (table) => {
@@ -198,9 +206,53 @@ async function seedDatabase() {
       referral_earnings: 1500.0,
       kyc_level: 'Tier 1',
       transaction_pin: '1111',
-      is_pin_set: 1
+      is_pin_set: 1,
+      role: 'super_admin'
     });
     console.log('✔ Seeded default profile for iqleadsbloger@gmail.com.');
+  } else {
+    // Make sure default user is always marked as super_admin
+    await db('users').where({ email: defaultEmail }).update({ role: 'super_admin' });
+  }
+
+  // Ensure Admin Demo User
+  const adminEmail = 'admin@topup.ng';
+  const adminUser = await db('users').where({ email: adminEmail }).first();
+  if (!adminUser) {
+    await db('users').insert({
+      email: adminEmail,
+      phone: '08011112222',
+      name: 'Femi Johnson (Admin)',
+      wallet_balance: 50000.0,
+      referral_code: 'ADMIN-TOPUP',
+      referred_count: 0,
+      referral_earnings: 0.0,
+      kyc_level: 'Tier 3',
+      transaction_pin: '1111',
+      is_pin_set: 1,
+      role: 'admin'
+    });
+    console.log('✔ Seeded admin demo profile admin@topup.ng.');
+  }
+
+  // Ensure Normal Demo User
+  const customerEmail = 'customer@topup.ng';
+  const customerUser = await db('users').where({ email: customerEmail }).first();
+  if (!customerUser) {
+    await db('users').insert({
+      email: customerEmail,
+      phone: '08033334444',
+      name: 'Chidi Adebayo (User)',
+      wallet_balance: 1250.0,
+      referral_code: 'CHIDI-SHARE',
+      referred_count: 1,
+      referral_earnings: 500.0,
+      kyc_level: 'Tier 1',
+      transaction_pin: '1111',
+      is_pin_set: 1,
+      role: 'user'
+    });
+    console.log('✔ Seeded regular customer demo profile customer@topup.ng.');
   }
 
   // Check default api configurations

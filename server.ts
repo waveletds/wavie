@@ -48,6 +48,7 @@ async function startServer() {
       isPinSet: dbUser.is_pin_set === 1,
       isWebAuthnEnabled: dbUser.is_webauthn_enabled === 1,
       webAuthnCredentialId: dbUser.webauthn_credential_id || '',
+      role: dbUser.role || 'user',
     };
   };
 
@@ -320,6 +321,194 @@ async function startServer() {
 
       const updatedUser = await db('users').where({ email }).first();
       res.json({ success: true, user: mapDbUserToClient(updatedUser) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Helper helper to verify administrative and super administrative access control rights
+  const checkRole = async (email: string, requiredRoles: ('admin' | 'super_admin')[]) => {
+    if (!email) return false;
+    const adminAccount = await db('users').where({ email: String(email).trim() }).first();
+    if (!adminAccount) return false;
+    return requiredRoles.includes(adminAccount.role as any);
+  };
+
+  // Admin API: List all users globally
+  app.get('/api/admin/users', async (req: Request, res: Response, next: NextFunction) => {
+    const requesterEmail = req.header('x-requester-email') || req.query.requesterEmail;
+    if (!requesterEmail) {
+      return res.status(403).json({ error: 'Administrative access check failed: requester email required' });
+    }
+    const isAuthorized = await checkRole(String(requesterEmail), ['admin', 'super_admin']);
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Administrative access check failed: Administrative privilege required' });
+    }
+    try {
+      const allUsers = await db('users').select('*');
+      const mapped = allUsers.map(u => mapDbUserToClient(u));
+      res.json({ success: true, users: mapped });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Admin API: List all transactions globally
+  app.get('/api/admin/transactions', async (req: Request, res: Response, next: NextFunction) => {
+    const requesterEmail = req.header('x-requester-email') || req.query.requesterEmail;
+    if (!requesterEmail) {
+      return res.status(403).json({ error: 'Administrative access check failed: requester email required' });
+    }
+    const isAuthorized = await checkRole(String(requesterEmail), ['admin', 'super_admin']);
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Administrative access check failed: Administrative privilege required' });
+    }
+    try {
+      const allTxs = await db('transactions').select('*').orderBy('timestamp', 'desc');
+      const mapped = allTxs.map(t => mapDbTransactionToClient(t));
+      res.json({ success: true, transactions: mapped });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Admin API: Manually reward or deduct target user's wallet
+  app.post('/api/admin/user/wallet-balance', async (req: Request, res: Response, next: NextFunction) => {
+    const { requesterEmail, userEmail, action, amount } = req.body;
+    if (!requesterEmail) {
+      return res.status(403).json({ error: 'Administrative check failed: Requester email required' });
+    }
+    const isAuthorized = await checkRole(String(requesterEmail), ['admin', 'super_admin']);
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Administrative check failed: Administrative privileges required' });
+    }
+    if (!userEmail || amount === undefined || isNaN(Number(amount)) || Number(amount) < 0) {
+      return res.status(400).json({ error: 'Invalid body parameters. Targets, valid amount and action type required' });
+    }
+
+    try {
+      const targetUser = await db('users').where({ email: userEmail }).first();
+      if (!targetUser) {
+        return res.status(404).json({ error: 'Target user account not found in database registry' });
+      }
+
+      let newBalance = targetUser.wallet_balance;
+      if (action === 'add') {
+        newBalance += Number(amount);
+      } else if (action === 'dedruct' || action === 'deduct') {
+        newBalance = Math.max(0, newBalance - Number(amount));
+      } else {
+        return res.status(400).json({ error: 'Specified action must either be "add" or "deduct"' });
+      }
+
+      await db('users').where({ email: userEmail }).update({ wallet_balance: newBalance });
+
+      // Append transaction journal entry
+      const txId = 'tx_man_' + Math.random().toString(36).substring(2, 10);
+      await db('transactions').insert({
+        id: txId,
+        user_email: userEmail,
+        type: action === 'add' ? 'funding' : 'withdrawal',
+        amount: Number(amount),
+        fee: 0,
+        status: 'success',
+        timestamp: new Date().toISOString(),
+        description: `Manual balance adjust by admin (${requesterEmail}): ${action === 'add' ? 'Funded' : 'Deducted'} ₦${Number(amount).toLocaleString()}`,
+        recipient: 'Admin Office Override',
+        reference: 'TN-ADMIN-' + Math.random().toString(32).substring(2, 9).toUpperCase()
+      });
+
+      const updatedUser = await db('users').where({ email: userEmail }).first();
+      res.json({ success: true, message: `Wallet balance adjusted to ₦${newBalance.toLocaleString()}!`, user: mapDbUserToClient(updatedUser) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Admin API: Change user KYC status
+  app.post('/api/admin/user/kyc-level', async (req: Request, res: Response, next: NextFunction) => {
+    const { requesterEmail, userEmail, kycLevel } = req.body;
+    if (!requesterEmail) {
+      return res.status(403).json({ error: 'Administrative check failed: Requester email required' });
+    }
+    const isAuthorized = await checkRole(String(requesterEmail), ['admin', 'super_admin']);
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Access denied: Administrative level required' });
+    }
+    if (!userEmail || !kycLevel) {
+      return res.status(400).json({ error: 'Email and KYC Level parameters required' });
+    }
+
+    try {
+      const targetUser = await db('users').where({ email: userEmail }).first();
+      if (!targetUser) {
+        return res.status(404).json({ error: 'Target user account not found' });
+      }
+
+      await db('users').where({ email: userEmail }).update({ kyc_level: kycLevel });
+      const updatedUser = await db('users').where({ email: userEmail }).first();
+      res.json({ success: true, message: `KYC status of ${userEmail} successfully elevated to ${kycLevel}`, user: mapDbUserToClient(updatedUser) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Super Admin ONLY: Update user core role properties
+  app.post('/api/admin/user/role', async (req: Request, res: Response, next: NextFunction) => {
+    const { requesterEmail, userEmail, role } = req.body;
+    if (!requesterEmail) {
+      return res.status(403).json({ error: 'Administrative check failed: Requester email required' });
+    }
+    const isAuthorized = await checkRole(String(requesterEmail), ['super_admin']);
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Access denied: Super Admin master role level is required' });
+    }
+    if (!userEmail || !role) {
+      return res.status(400).json({ error: 'Target email and new role parameters required' });
+    }
+    if (!['user', 'admin', 'super_admin'].includes(role)) {
+       return res.status(400).json({ error: 'Invalid role value. Must be user, admin, or super_admin' });
+    }
+
+    try {
+      const targetUser = await db('users').where({ email: userEmail }).first();
+      if (!targetUser) {
+        return res.status(404).json({ error: 'Target user account not found' });
+      }
+
+      await db('users').where({ email: userEmail }).update({ role: role });
+      const updatedUser = await db('users').where({ email: userEmail }).first();
+      res.json({ success: true, message: `Role of ${userEmail} updated to [${role}] successfully!`, user: mapDbUserToClient(updatedUser) });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Admin API: Manually modify transaction status references
+  app.post('/api/admin/transaction/update-status', async (req: Request, res: Response, next: NextFunction) => {
+    const { requesterEmail, transactionId, status } = req.body;
+    if (!requesterEmail) {
+      return res.status(403).json({ error: 'Administrative check failed: Requester email required' });
+    }
+    const isAuthorized = await checkRole(String(requesterEmail), ['admin', 'super_admin']);
+    if (!isAuthorized) {
+      return res.status(403).json({ error: 'Administrative check failed: Administrative privilege required' });
+    }
+    if (!transactionId || !status) {
+      return res.status(400).json({ error: 'Transaction database ID and status values required' });
+    }
+    if (!['pending', 'success', 'failed'].includes(status)) {
+       return res.status(400).json({ error: 'Transaction target status must be pending, success or failed' });
+    }
+
+    try {
+      const tx = await db('transactions').where({ id: transactionId }).first();
+      if (!tx) {
+        return res.status(404).json({ error: 'Target transaction record not found' });
+      }
+
+      await db('transactions').where({ id: transactionId }).update({ status: status });
+      res.json({ success: true, message: `Transaction status adjusted to ${status} successfully.` });
     } catch (err) {
       next(err);
     }

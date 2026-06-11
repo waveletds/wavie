@@ -65,6 +65,7 @@ export interface UserState {
   isPinSet: boolean;
   isWebAuthnEnabled?: boolean;
   webAuthnCredentialId?: string;
+  role?: 'user' | 'admin' | 'super_admin';
 }
 
 export interface DataPlan {
@@ -86,6 +87,8 @@ export type ActiveTab =
   | 'wallet' 
   | 'transactions' 
   | 'settings'
-  | 'smm';
+  | 'smm'
+  | 'admin_dashboard'
+  | 'super_admin_dashboard';
 
 export type Language = 'english' | 'pidgin';
