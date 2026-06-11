@@ -77,10 +77,10 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
 
   const [copiedAccount, setCopiedAccount] = useState<boolean>(false);
 
-  // Dynamic Strowallet virtual accounts resolved details
+  // Dynamic virtual accounts resolved details
   const last9Digits = user.phone.startsWith('0') ? user.phone.substring(1) : user.phone;
   const resolvedAccountNumber = user.strowalletAccountNumber || `502${last9Digits.padEnd(7, '8')}`.substring(0, 10);
-  const resolvedBankName = user.strowalletBankName || 'Wema Bank (Strowallet)';
+  const resolvedBankName = (user.strowalletBankName || 'Wema Bank').replace(' (Strowallet)', '');
   const resolvedStrowalletAccountName = user.strowalletAccountName || `WAVIE / ${user.name.toUpperCase()}`;
 
   const handleCopyAccount = (value: string, label: string) => {
@@ -98,13 +98,13 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
     }
 
     setIsSimulatingTransfer(true);
-    addToast('Clearing bank transfer request via Strowallet processing hub...', 'info');
+    addToast('Clearing bank transfer request via virtual processing hub...', 'info');
 
     setTimeout(() => {
       setIsSimulatingTransfer(false);
-      const generatedRef = `STRW-WEB-${Math.floor(10000000 + Math.random() * 89999999)}`;
+      const generatedRef = `WAV-WEB-${Math.floor(10000000 + Math.random() * 89999999)}`;
       
-      // Hit the official webhook endpoint to simulate a real payment update loop
+      // Hit the webhook endpoint to simulate a real payment update loop
       try {
         fetch('/api/strowallet/webhook', {
           method: 'POST',
@@ -112,7 +112,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
           body: JSON.stringify({
             event: 'vaccount.credited',
             data: {
-              customer_id: user.strowalletCustomerId || 'STRW-CST-DEMO',
+              customer_id: user.strowalletCustomerId || 'WAV-CST-DEMO',
               account_number: resolvedAccountNumber,
               amount: amt,
               reference: generatedRef,
@@ -121,20 +121,20 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
           })
         }).then(async (res) => {
           if (res.ok) {
-            addToast(`Strowallet Auto-fund Successful! Credited ₦${amt.toLocaleString()} straight to wallet balance!`, 'success');
+            addToast(`Auto-fund Successful! Credited ₦${amt.toLocaleString()} straight to wallet balance!`, 'success');
             // Update parent balance to refresh State immediately
             onFundWallet(
               amt, 
-              `Strowallet Virtual Account Transfer +₦${amt.toLocaleString()} (Ref: ${generatedRef})`, 
-              'strowallet', 
+              `Virtual Account Transfer +₦${amt.toLocaleString()} (Ref: ${generatedRef})`, 
+              'virtual_bank_transfer', 
               generatedRef
             );
           } else {
-            console.warn('Strowallet webhook simulation answered with non-200. Falling back.');
+            console.warn('Webhook simulation answered with non-200. Falling back.');
             onFundWallet(
               amt, 
-              `Strowallet Virtual Account Transfer +₦${amt.toLocaleString()} (Ref: ${generatedRef})`, 
-              'strowallet', 
+              `Virtual Account Transfer +₦${amt.toLocaleString()} (Ref: ${generatedRef})`, 
+              'virtual_bank_transfer', 
               generatedRef
             );
             addToast(`Deposit of ₦${amt.toLocaleString()} processed successfully!`, 'success');
@@ -456,14 +456,14 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
             </div>
 
             {fundMethod === 'transfer' ? (
-              /* strowallet transfers screen */
-              <div className="flex flex-col gap-5" id="strowallet-transfer-view">
+              /* virtual transfers screen */
+              <div className="flex flex-col gap-5" id="virtual-transfer-view">
                 <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-xl flex flex-col gap-4 relative overflow-hidden">
                   <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
                   
                   <div className="flex items-center gap-2">
                     <Building2 className="w-5 h-5 text-emerald-400" />
-                    <span className="text-xs font-bold font-mono index-strow-title uppercase tracking-widest text-slate-300">STROWALLET PERSONALIZED AUTO-BANK INFLOW</span>
+                    <span className="text-xs font-bold font-mono index-strow-title uppercase tracking-widest text-slate-300">PERSONALIZED AUTO-BANK INFLOW</span>
                   </div>
 
                   {/* Bank Details */}
@@ -490,7 +490,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
                       <button
                         type="button"
                         onClick={() => handleCopyAccount(resolvedAccountNumber, 'Account Number')}
-                        className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-350 hover:text-white rounded-lg transition-colors cursor-pointer"
+                        className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-355 hover:text-white rounded-lg transition-colors cursor-pointer"
                       >
                         <Copy className="w-4 h-4" />
                       </button>
@@ -513,7 +513,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
 
                   <div className="text-[10px] text-slate-400 flex gap-2 font-medium leading-relaxed bg-white/5 p-3 rounded-xl">
                     <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5 animate-pulse" />
-                    <span>Send NUBAN deposits to this personalized account. Strowallet routes and credits your portfolio instantly in less than 10 seconds.</span>
+                    <span>Send NUBAN deposits to this personalized account. The gateway routes and credits your portfolio instantly in less than 10 seconds.</span>
                   </div>
                 </div>
 
@@ -521,7 +521,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
                 <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl flex flex-col gap-4 mt-2">
                   <div className="flex flex-col">
                     <span className="text-xs font-extrabold font-display text-slate-800 uppercase tracking-wider">Simulate Webhook Transfer</span>
-                    <span className="text-[10px] text-slate-500 font-medium">Test instant Strowallet automated webhook execution right in this preview environment.</span>
+                    <span className="text-[10px] text-slate-500 font-medium">Test instant automated webhook execution right in this preview environment.</span>
                   </div>
 
                   <div className="flex flex-col gap-2">

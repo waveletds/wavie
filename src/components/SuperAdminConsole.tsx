@@ -18,15 +18,10 @@ export function SuperAdminConsole({ currentUser, addToast, onRefreshUserData }: 
 
   // Config integration states
   const [config, setConfig] = useState<any>({
-    sagecloud_api_key: '',
-    sagecloud_api_url: 'https://api.sagecloud.ng/v1',
     paystack_public_key: '',
     paystack_secret_key: '',
     smm_api_key: '',
     smm_api_url: 'https://easy-smm-panel.com/api/v2',
-    strowallet_public_key: '',
-    strowallet_secret_key: '',
-    strowallet_api_url: 'https://api.strowallet.com/v1'
   });
   const [isUpdatingConfig, setIsUpdatingConfig] = useState<boolean>(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState<boolean>(true);
@@ -41,7 +36,7 @@ export function SuperAdminConsole({ currentUser, addToast, onRefreshUserData }: 
   const [telemetryLogs, setTelemetryLogs] = useState<Array<{ time: string; level: 'info' | 'warn' | 'success'; msg: string }>>([
     { time: new Date().toLocaleTimeString(), level: 'success', msg: 'System Kernel secured (v3.5 WAL Mode initialized)' },
     { time: new Date(Date.now() - 5000).toLocaleTimeString(), level: 'info', msg: 'SQLite connection pool loaded: max 15 threads' },
-    { time: new Date(Date.now() - 15000).toLocaleTimeString(), level: 'info', msg: 'Sagecloud gateway ping: 200 ms latency' },
+    { time: new Date(Date.now() - 15000).toLocaleTimeString(), level: 'info', msg: 'Gateway auto-banking node active: Providus & Sterling API' },
     { time: new Date(Date.now() - 25000).toLocaleTimeString(), level: 'success', msg: 'Paystack webhook listener active on SSL port' }
   ]);
 
@@ -110,15 +105,10 @@ export function SuperAdminConsole({ currentUser, addToast, onRefreshUserData }: 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: currentUser.email,
-          sagecloudApiKey: config.sagecloud_api_key,
-          sagecloudApiUrl: config.sagecloud_api_url,
           paystackPublicKey: config.paystack_public_key,
           paystackSecretKey: config.paystack_secret_key,
           smmApiKey: config.smm_api_key,
           smmApiUrl: config.smm_api_url,
-          strowalletPublicKey: config.strowallet_public_key,
-          strowalletSecretKey: config.strowallet_secret_key,
-          strowalletApiUrl: config.strowallet_api_url
         })
       });
 
@@ -212,7 +202,7 @@ export function SuperAdminConsole({ currentUser, addToast, onRefreshUserData }: 
             </div>
             <h2 className="text-xl sm:text-2xl font-black font-display tracking-tight">SUPER ADMiN MASTER CONSOLE</h2>
             <p className="text-xs text-slate-400 font-sans max-w-xl">
-              This terminal controls core settings, credentials, and API connection gateways. Be cautious when editing secrets as they dictate active billing routes on Sagecloud, Strowallet, and Paystack.
+              This terminal controls core settings, credentials, and API connection gateways. Be cautious when editing secrets as they dictate active billing routes on Paystack and other vendors.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -289,77 +279,7 @@ export function SuperAdminConsole({ currentUser, addToast, onRefreshUserData }: 
                   </div>
                 </div>
 
-                {/* SAGECLOUD SECTION */}
-                <div className="p-4 bg-slate-50 border border-slate-101 rounded-2xl flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 font-display flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-indigo-500" />
-                      Sagecloud NG Gateway (Electricity & Cable VTU)
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black text-slate-455 uppercase tracking-widest font-mono">Api Server Endpoint</label>
-                      <input
-                        type="text"
-                        value={config.sagecloud_api_url || 'https://api.sagecloud.ng/v1'}
-                        onChange={(e) => setConfig({ ...config, sagecloud_api_url: e.target.value })}
-                        className="p-2 border border-slate-205 text-xs font-mono bg-white rounded-xl outline-none"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black text-slate-455 uppercase tracking-widest font-mono">Secret API Authorization Token</label>
-                      <input
-                        type="password"
-                        value={config.sagecloud_api_key || ''}
-                        onChange={(e) => setConfig({ ...config, sagecloud_api_key: e.target.value })}
-                        placeholder="e.g. SC_JWT_..."
-                        className="p-2 border border-slate-205 text-xs font-mono bg-white rounded-xl outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
 
-                {/* STROWALLET SECTION */}
-                <div className="p-4 bg-slate-50 border border-slate-101 rounded-2xl flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-black uppercase tracking-wider text-indigo-900 font-display flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-violet-500" />
-                      Strowallet API Gateway (USD Card Provider)
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black text-slate-455 uppercase tracking-widest font-mono">Strowallet API URL</label>
-                      <input
-                        type="text"
-                        value={config.strowallet_api_url || 'https://api.strowallet.com/v1'}
-                        onChange={(e) => setConfig({ ...config, strowallet_api_url: e.target.value })}
-                        className="p-2 border border-slate-205 text-xs font-mono bg-white rounded-xl outline-none"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-black text-slate-455 uppercase tracking-widest font-mono">Strowallet Public Key</label>
-                      <input
-                        type="text"
-                        value={config.strowallet_public_key || ''}
-                        onChange={(e) => setConfig({ ...config, strowallet_public_key: e.target.value })}
-                        placeholder="e.g. stroke_pub_..."
-                        className="p-2 border border-slate-205 text-xs font-mono bg-white rounded-xl outline-none"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1 sm:col-span-2">
-                      <label className="text-[9px] font-black text-slate-455 uppercase tracking-widest font-mono">Strowallet Secret Key</label>
-                      <input
-                        type="password"
-                        value={config.strowallet_secret_key || ''}
-                        onChange={(e) => setConfig({ ...config, strowallet_secret_key: e.target.value })}
-                        placeholder="e.g. stroke_sk_..."
-                        className="p-2 border border-slate-205 text-xs font-mono bg-white rounded-xl outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
 
                 {/* SMM SECTION */}
                 <div className="p-4 bg-slate-50 border border-slate-101 rounded-2xl flex flex-col gap-3">

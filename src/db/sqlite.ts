@@ -150,8 +150,10 @@ export async function runMigrations() {
       table.string('strowallet_public_key').nullable();
       table.string('strowallet_secret_key').nullable();
       table.string('strowallet_api_url').defaultTo('https://api.strowallet.com/v1').nullable();
+      table.string('supabase_url').nullable();
+      table.string('supabase_anon_key').nullable();
     });
-    console.log('✔ Migrated "api_configs" table with Paystack, SMM & Strowallet support.');
+    console.log('✔ Migrated "api_configs" table with Paystack, SMM, Strowallet & Supabase support.');
   } else {
     // Add additional fields dynamically to handle runtime updates
     const hasPubKey = await db.schema.hasColumn('api_configs', 'paystack_public_key');
@@ -178,6 +180,14 @@ export async function runMigrations() {
         table.string('strowallet_api_url').defaultTo('https://api.strowallet.com/v1').nullable();
       });
       console.log('✔ Patched "api_configs" table with strowallet_public_key, strowallet_secret_key & strowallet_api_url.');
+    }
+    const hasSupabaseFields = await db.schema.hasColumn('api_configs', 'supabase_url');
+    if (!hasSupabaseFields) {
+      await db.schema.table('api_configs', (table) => {
+        table.string('supabase_url').nullable();
+        table.string('supabase_anon_key').nullable();
+      });
+      console.log('✔ Patched "api_configs" table with supabase_url and supabase_anon_key.');
     }
   }
 
@@ -270,8 +280,6 @@ async function seedDatabase() {
   if (!config) {
     await db('api_configs').insert({
       user_email: defaultEmail,
-      sagecloud_api_key: null,
-      sagecloud_api_url: 'https://api.sagecloud.ng/v1',
       paystack_public_key: 'pk_live_26c21769a652b4bfd26b4f02d485c915d21fe69e',
       strowallet_public_key: 'pub_2tGdv9VqcdW3rMD8TUjUNkUEIYoUIkj5FRk4TcXu',
       strowallet_secret_key: 'sec_wQ3z3fvOWVGMW2U7ByZlrLatPGs7umseervrwLZB',
@@ -366,7 +374,7 @@ async function seedDatabase() {
       {
         user_email: defaultEmail,
         commit_hash: '30a10df85be99146ec001bf64c58cf32df73b06c',
-        message: 'Integrate Sagecloud.ng payment gateway and credentials settings pane',
+        message: 'Integrate master payment gateways and credentials settings pane',
         files_changed: 'server.ts, src/components/SettingsConfig.tsx',
         timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
         status: 'PUSHED'

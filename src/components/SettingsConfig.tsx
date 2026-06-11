@@ -4,7 +4,7 @@ import {
   Languages, Eye, EyeOff, ShieldCheck, Mail, Phone, 
   MapPin, ShieldPlus, ChevronRight, User, Key, KeyRound, Sparkles,
   Fingerprint, ScanFace, Cpu, RefreshCw, Loader2, Activity,
-  GitBranch, GitCommit, GitPullRequest, Download, AlertTriangle, CheckCircle, Terminal, LogOut
+  GitBranch, GitCommit, GitPullRequest, Download, AlertTriangle, CheckCircle, Terminal, LogOut, Database
 } from 'lucide-react';
 import { UserState, Language, KYCLevel } from '../types';
 
@@ -25,13 +25,21 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
   addToast,
   onLogout,
 }) => {
-  // Sagecloud API hub integration configuration states
-  const [sagecloudApiKey, setSagecloudApiKey] = useState<string>(() => {
-    return localStorage.getItem(`topup_sagecloud_api_key_${user.email}`) || '';
+  const [supabaseUrl, setSupabaseUrl] = useState<string>(() => {
+    return localStorage.getItem(`topup_supabase_url_${user.email}`) || 'https://guzlvzkifizmskmwdfdk.supabase.co';
   });
-  const [sagecloudApiUrl, setSagecloudApiUrl] = useState<string>(() => {
-    return localStorage.getItem(`topup_sagecloud_api_url_${user.email}`) || 'https://api.sagecloud.ng/v1';
+  const [supabaseAnonKey, setSupabaseAnonKey] = useState<string>(() => {
+    return localStorage.getItem(`topup_supabase_anon_key_${user.email}`) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1emx2emtpZml6bXNrbXdkZmRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNzk1NzIsImV4cCI6MjA5Njc1NTU3Mn0.SekayTDlb-5pRXbjRMA6bo2uBODO5YenOpf7zz9wqNc';
   });
+  const [showSupabaseKey, setShowSupabaseKey] = useState<boolean>(false);
+  const [isTestingSupabase, setIsTestingSupabase] = useState<boolean>(false);
+  const [isSyncingSupabase, setIsSyncingSupabase] = useState<boolean>(false);
+  const [supabaseTestResult, setSupabaseTestResult] = useState<{
+    success: boolean;
+    message: string;
+    tablesExist?: boolean;
+  } | null>(null);
+
   const [paystackPublicKey, setPaystackPublicKey] = useState<string>(() => {
     return localStorage.getItem(`topup_paystack_public_key_${user.email}`) || '';
   });
@@ -44,20 +52,8 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
   const [smmApiUrl, setSmmApiUrl] = useState<string>(() => {
     return localStorage.getItem(`topup_smm_api_url_${user.email}`) || 'https://easy-smm-panel.com/api/v2';
   });
-  const [strowalletPublicKey, setStrowalletPublicKey] = useState<string>(() => {
-    return localStorage.getItem(`topup_strowallet_public_key_${user.email}`) || '';
-  });
-  const [strowalletSecretKey, setStrowalletSecretKey] = useState<string>(() => {
-    return localStorage.getItem(`topup_strowallet_secret_key_${user.email}`) || '';
-  });
-  const [strowalletApiUrl, setStrowalletApiUrl] = useState<string>(() => {
-    return localStorage.getItem(`topup_strowallet_api_url_${user.email}`) || 'https://api.strowallet.com/v1';
-  });
-
   const [showPaystackSecret, setShowPaystackSecret] = useState<boolean>(false);
-  const [showSagecloudKey, setShowSagecloudKey] = useState<boolean>(false);
   const [showSmmKey, setShowSmmKey] = useState<boolean>(false);
-  const [showStrowalletSecret, setShowStrowalletSecret] = useState<boolean>(false);
   const [isTestingApi, setIsTestingApi] = useState<boolean>(false);
   const [isSavingApi, setIsSavingApi] = useState<boolean>(false);
   const [apiTestResult, setApiTestResult] = useState<{
@@ -108,36 +104,30 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
   };
 
   useEffect(() => {
-    // Fetch user-level Sagecloud API Configuration & simulated commits on mount
+    // Fetch user-level API Configuration & simulated commits on mount
     const fetchVtuConfig = async () => {
       try {
         const response = await fetch(`/api/user/vtu-config?email=${encodeURIComponent(user.email)}`);
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.config) {
-            setSagecloudApiKey(data.config.sagecloud_api_key || '');
-            setSagecloudApiUrl(data.config.sagecloud_api_url || 'https://api.sagecloud.ng/v1');
             setPaystackPublicKey(data.config.paystack_public_key || '');
             setPaystackSecretKey(data.config.paystack_secret_key || '');
             setSmmApiKey(data.config.smm_api_key || '');
             setSmmApiUrl(data.config.smm_api_url || 'https://easy-smm-panel.com/api/v2');
-            setStrowalletPublicKey(data.config.strowallet_public_key || '');
-            setStrowalletSecretKey(data.config.strowallet_secret_key || '');
-            setStrowalletApiUrl(data.config.strowallet_api_url || 'https://api.strowallet.com/v1');
+            setSupabaseUrl(data.config.supabase_url || '');
+            setSupabaseAnonKey(data.config.supabase_anon_key || '');
 
-            localStorage.setItem(`topup_sagecloud_api_key_${user.email}`, data.config.sagecloud_api_key || '');
-            localStorage.setItem(`topup_sagecloud_api_url_${user.email}`, data.config.sagecloud_api_url || 'https://api.sagecloud.ng/v1');
             localStorage.setItem(`topup_paystack_public_key_${user.email}`, data.config.paystack_public_key || '');
             localStorage.setItem(`topup_paystack_secret_key_${user.email}`, data.config.paystack_secret_key || '');
             localStorage.setItem(`topup_smm_api_key_${user.email}`, data.config.smm_api_key || '');
             localStorage.setItem(`topup_smm_api_url_${user.email}`, data.config.smm_api_url || 'https://easy-smm-panel.com/api/v2');
-            localStorage.setItem(`topup_strowallet_public_key_${user.email}`, data.config.strowallet_public_key || '');
-            localStorage.setItem(`topup_strowallet_secret_key_${user.email}`, data.config.strowallet_secret_key || '');
-            localStorage.setItem(`topup_strowallet_api_url_${user.email}`, data.config.strowallet_api_url || 'https://api.strowallet.com/v1');
+            localStorage.setItem(`topup_supabase_url_${user.email}`, data.config.supabase_url || '');
+            localStorage.setItem(`topup_supabase_anon_key_${user.email}`, data.config.supabase_anon_key || '');
           }
         }
       } catch (err) {
-        console.error('Failed to load Sagecloud credentials:', err);
+        console.error('Failed to load credentials:', err);
       }
     };
     fetchVtuConfig();
@@ -211,15 +201,12 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
     setIsSavingApi(true);
 
     // Dynamic instant save to offline local persistence layers
-    localStorage.setItem(`topup_sagecloud_api_key_${user.email}`, sagecloudApiKey);
-    localStorage.setItem(`topup_sagecloud_api_url_${user.email}`, sagecloudApiUrl);
     localStorage.setItem(`topup_paystack_public_key_${user.email}`, paystackPublicKey);
     localStorage.setItem(`topup_paystack_secret_key_${user.email}`, paystackSecretKey);
     localStorage.setItem(`topup_smm_api_key_${user.email}`, smmApiKey);
     localStorage.setItem(`topup_smm_api_url_${user.email}`, smmApiUrl);
-    localStorage.setItem(`topup_strowallet_public_key_${user.email}`, strowalletPublicKey);
-    localStorage.setItem(`topup_strowallet_secret_key_${user.email}`, strowalletSecretKey);
-    localStorage.setItem(`topup_strowallet_api_url_${user.email}`, strowalletApiUrl);
+    localStorage.setItem(`topup_supabase_url_${user.email}`, supabaseUrl);
+    localStorage.setItem(`topup_supabase_anon_key_${user.email}`, supabaseAnonKey);
 
     try {
       const response = await fetch('/api/user/vtu-config', {
@@ -229,22 +216,19 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
         },
         body: JSON.stringify({
           email: user.email,
-          sagecloudApiKey: sagecloudApiKey,
-          sagecloudApiUrl: sagecloudApiUrl,
           paystackPublicKey: paystackPublicKey,
           paystackSecretKey: paystackSecretKey,
           smmApiKey: smmApiKey,
           smmApiUrl: smmApiUrl,
-          strowalletPublicKey: strowalletPublicKey,
-          strowalletSecretKey: strowalletSecretKey,
-          strowalletApiUrl: strowalletApiUrl
+          supabaseUrl: supabaseUrl,
+          supabaseAnonKey: supabaseAnonKey
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          addToast('Payment gateway & VTU API profiles saved successfully!', 'success');
+          addToast('Vendor credentials & Supabase secure gateway saved successfully!', 'success');
         } else {
           addToast(data.error || 'Failed to update remote gateway configurations.', 'error');
         }
@@ -258,96 +242,78 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
     }
   };
 
-  const handleTestApiConnection = async () => {
-    if (!sagecloudApiKey || sagecloudApiKey.trim() === '') {
-      addToast('Please input an API Key before running diagnostics.', 'warning');
+  const handleTestSupabaseConnection = async () => {
+    if (!supabaseUrl || !supabaseAnonKey) {
+      addToast('Please provide both the Supabase API Endpoint URL and Anon Key.', 'warning');
       return;
     }
-    setIsTestingApi(true);
-    setApiTestResult(null);
+    setIsTestingSupabase(true);
+    setSupabaseTestResult(null);
     try {
-      const response = await fetch('/api/user/vtu-config/test', {
+      const response = await fetch('/api/user/supabase/test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          sagecloudApiKey: sagecloudApiKey,
-          sagecloudApiUrl: sagecloudApiUrl,
+          supabaseUrl,
+          supabaseAnonKey,
         }),
       });
 
       const data = await response.json();
       if (response.ok && data.success) {
-        setApiTestResult({
+        setSupabaseTestResult({
           success: true,
           message: data.message,
-          balance: data.balance,
-          merchantName: data.merchantName,
+          tablesExist: data.tablesExist,
         });
-        addToast('Sagecloud.ng API link verified successfully!', 'success');
+        addToast('Supabase link verified and connected!', 'success');
       } else {
-        setApiTestResult({
+        setSupabaseTestResult({
           success: false,
-          message: data.error || 'Gateway test failed.',
+          message: data.error || 'Gateway connection diagnostic handshake failed.',
         });
-        addToast('Sagecloud connection diagnostics failed.', 'error');
+        addToast('Supabase connection diagnostics failed.', 'error');
       }
     } catch (e: any) {
-      setApiTestResult({
+      setSupabaseTestResult({
         success: false,
         message: `Network Exception Error: ${e.message}`,
       });
-      addToast('Network error during connection test.', 'error');
+      addToast('Standard network timeout or address lookup failure.', 'error');
     } finally {
-      setIsTestingApi(false);
+      setIsTestingSupabase(false);
     }
   };
 
-  const handleTestStrowalletConnection = async () => {
-    if (!strowalletPublicKey || strowalletPublicKey.trim() === '') {
-      addToast('Please input a Public API Key before running diagnostics.', 'warning');
+  const handleSyncSupabaseHistory = async () => {
+    if (!supabaseUrl || !supabaseAnonKey) {
+      addToast('Please configure and save your Supabase coordinates before running sync.', 'warning');
       return;
     }
-    setIsTestingApi(true);
-    setApiTestResult(null);
+    setIsSyncingSupabase(true);
     try {
-      const response = await fetch('/api/user/strowallet-config/test', {
+      const response = await fetch('/api/user/supabase/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          strowalletPublicKey: strowalletPublicKey,
-          strowalletSecretKey: strowalletSecretKey,
-          strowalletApiUrl: strowalletApiUrl,
+          email: user.email,
         }),
       });
 
       const data = await response.json();
       if (response.ok && data.success) {
-        setApiTestResult({
-          success: true,
-          message: data.message,
-          balance: data.balance,
-          merchantName: data.merchantName,
-        });
-        addToast('Strowallet API link verified successfully!', 'success');
+        addToast(data.message || 'Mirrored successfully!', 'success');
       } else {
-        setApiTestResult({
-          success: false,
-          message: data.error || 'Gateway test failed.',
-        });
-        addToast('Strowallet connection diagnostics failed.', 'error');
+        addToast(data.error || 'Supabase migration syncing failed.', 'error');
       }
     } catch (e: any) {
-      setApiTestResult({
-        success: false,
-        message: `Network Exception Error: ${e.message}`,
-      });
-      addToast('Network error during connection test.', 'error');
+      addToast(`Execution exception: ${e.message}`, 'error');
     } finally {
-      setIsTestingApi(false);
+      setIsSyncingSupabase(false);
     }
   };
 
@@ -854,154 +820,6 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
           </span>
         </div>
       </div>
-    </div> {/* Close grid-cols-3 */}
-
-    {/* Sagecloud API Key Configuration & Test Diagnostics */}
-    <div className="bg-white rounded-2xl border border-slate-101 shadow-sm p-6 flex flex-col gap-6 w-full">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-50 pb-5">
-        <div className="flex items-start gap-3">
-          <div className="p-3 bg-indigo-50 border border-indigo-150 rounded-2xl text-indigo-650 shrink-0">
-            <Cpu className="w-4 h-4 text-indigo-600 animate-pulse" />
-          </div>
-          <div>
-            <h3 className="font-display font-black text-slate-900 text-sm tracking-wide uppercase">
-              Sagecloud.ng SERVICE INTEGRATOR & API HUB
-            </h3>
-            <p className="text-[11px] text-slate-400 font-medium">
-              Bridge your reseller terminal to live Sagecloud merchant networks to authorize real airtime, data, electricity bundles, and cable TV dispatch.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border ${
-            sagecloudApiKey && sagecloudApiKey.trim() !== ''
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-150 animate-pulse'
-              : 'bg-amber-50 text-amber-700 border-amber-150'
-          }`}>
-            {sagecloudApiKey && sagecloudApiKey.trim() !== '' ? '● Live Gateway Primed' : '○ Standby Mode Active'}
-          </span>
-        </div>
-      </div>
-
-      <form onSubmit={handleSaveApiConfig} className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-        <div className="md:col-span-8 flex flex-col gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Sagecloud Service Base Endpoint</label>
-              <div className="relative">
-                <input
-                  id="sagecloud-url-input"
-                  type="url"
-                  placeholder="https://api.sagecloud.ng/v1"
-                  value={sagecloudApiUrl}
-                  onChange={(e) => setSagecloudApiUrl(e.target.value)}
-                  className="w-full p-2.5 pl-9 border border-slate-205 text-xs font-mono bg-slate-50 focus:bg-white rounded-xl outline-none"
-                  required
-                />
-                <Cpu className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Sagecloud Secret Authorization Token</label>
-              <div className="relative">
-                <input
-                  id="sagecloud-key-input"
-                  type={showSagecloudKey ? "text" : "password"}
-                  placeholder="sc_live_token..."
-                  value={sagecloudApiKey}
-                  onChange={(e) => setSagecloudApiKey(e.target.value)}
-                  className="w-full p-2.5 pl-9 pr-10 border border-slate-205 text-xs font-mono bg-slate-50 focus:bg-white rounded-xl outline-none font-bold"
-                />
-                <KeyRound className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-                <button
-                  type="button"
-                  onClick={() => setShowSagecloudKey(!showSagecloudKey)}
-                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-650 p-1"
-                >
-                  {showSagecloudKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 pt-2">
-            <button
-              id="save-sagecloud-btn"
-              type="submit"
-              disabled={isSavingApi}
-              className="px-5 py-2.5 bg-slate-900 border border-slate-950 hover:bg-black text-white text-xs font-bold font-display rounded-xl flex items-center gap-2 shadow-sm hover:shadow active:scale-95 transition-all disabled:opacity-50"
-            >
-              {isSavingApi ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Saving API Profile...
-                </>
-              ) : 'Save Connection Profile'}
-            </button>
-
-            <button
-               id="test-vtu-connection-btn"
-              type="button"
-              onClick={handleTestApiConnection}
-              disabled={isTestingApi}
-              className="px-5 py-2.5 bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-100 text-xs font-bold font-display rounded-xl flex items-center gap-2 active:scale-95 transition-all disabled:opacity-50"
-            >
-              {isTestingApi ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  Testing Communications...
-                </>
-              ) : 'Run Endpoint Diagnostics'}
-            </button>
-          </div>
-        </div>
-
-        <div className="md:col-span-4 flex flex-col gap-4">
-          <span className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Telemetry Diagnostics Output</span>
-          {apiTestResult ? (
-            <div className={`p-4 rounded-2xl border ${
-              apiTestResult.success 
-                ? 'bg-emerald-50/70 border-emerald-150 text-emerald-950 shadow-inner animate-[fadeIn_0.3s_ease-out]' 
-                : 'bg-red-50/70 border-red-150 text-red-950'
-            } flex flex-col gap-2`}>
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${apiTestResult.success ? 'bg-emerald-500 animate-pulse' : 'bg-red-500 animate-bounce'}`} />
-                <span className="text-xs font-black uppercase font-display tracking-wider">
-                  {apiTestResult.success ? 'CONNECTED & AUTHORIZED' : 'CONNECTION BLOCKED'}
-                </span>
-              </div>
-              <p className="text-[11px] font-medium leading-relaxed font-sans opacity-95">
-                {apiTestResult.message}
-              </p>
-              {apiTestResult.success && (
-                <div className="border-t border-emerald-200/50 mt-1 pt-2 flex flex-col gap-1 font-mono text-[10px] opacity-90">
-                  <div className="flex justify-between">
-                    <span className="font-bold">Merchant Client:</span>
-                    <span className="font-extrabold">{apiTestResult.merchantName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-bold">Merchant Balance:</span>
-                    <span className="font-extrabold text-emerald-800">₦{(apiTestResult.balance || 0).toLocaleString()}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="p-5 border border-dashed border-slate-200 rounded-2xl bg-slate-50 flex flex-col items-center justify-center text-center text-slate-400 gap-1.5 select-none h-[115px]">
-              <Activity className="w-5 h-5 text-slate-300 stroke-[1.5]" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">No Connection Diagnostics Executed</span>
-            </div>
-          )}
-        </div>
-      </form>
-
-      <div className="p-3.5 bg-indigo-50/40 border border-indigo-100 rounded-2xl flex items-start gap-2.5 text-[10px] text-slate-500 leading-relaxed font-sans">
-        <Sparkles className="w-3.5 h-3.5 text-indigo-500 mt-0.5 shrink-0" />
-        <span>
-          <strong>Operator Note:</strong> Ensure your authorization credentials are valid and correct before saving connection profiles. When a live API token is supplied, transaction routing switches to cellular dispatch gateway processing immediately.
-        </span>
-      </div>
     </div>
 
     {/* Paystack Payment Gateway API Integration Keys Configuration */}
@@ -1203,127 +1021,185 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
       </div>
     </div>
 
-    {/* Strowallet Developer Key Configuration Area */}
-    <div className="bg-white rounded-2xl border border-slate-101 shadow-sm p-6 flex flex-col gap-6 w-full" id="strowallet-keys-config-area">
+
+
+    {/* Supabase Cloud Persistence and Sync Integrated Panel */}
+    <div className="bg-white rounded-2xl border border-slate-101 shadow-sm p-6 flex flex-col gap-6 w-full" id="supabase-config-area">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-50 pb-5">
         <div className="flex items-start gap-3">
-          <div className="p-3 bg-indigo-50 border border-indigo-150 rounded-2xl text-indigo-650 shrink-0">
-            <Cpu className="w-4 h-4 text-indigo-600" />
+          <div className="p-3 bg-emerald-50 border border-emerald-150 rounded-2xl text-emerald-650 shrink-0">
+            <Database className="w-4 h-4 text-emerald-600" />
           </div>
           <div>
             <h3 className="font-display font-black text-slate-900 text-sm tracking-wide uppercase flex items-center gap-1.5">
-              Strowallet API Multi-Service Integration
+              SUPABASE CLOUD PERSISTENCE INTEGRATION
             </h3>
             <p className="text-[11px] text-slate-400 font-medium font-sans">
-              Configure your Strowallet developer credentials. This will authorize instant Airtime, VTU services, virtual cards, utility processing, and payment routing.
+              Connect external Supabase serverless databases to safely mirror, sync, and persist your transactions, users, and reselling ledger history.
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border ${
-            strowalletPublicKey && strowalletPublicKey.trim() !== ''
+            supabaseUrl && supabaseUrl.trim() !== ''
               ? 'bg-emerald-50 text-emerald-700 border-emerald-150 animate-pulse'
-              : 'bg-amber-50 text-amber-700 border-amber-150'
+              : 'bg-slate-50 text-slate-450 border-slate-200'
           }`}>
-            {strowalletPublicKey && strowalletPublicKey.trim() !== '' ? '● Strowallet Gateway Armed' : '○ Reseller sandbox active'}
+            {supabaseUrl && supabaseUrl.trim() !== '' ? '● Supabase Active (Auto-Syncing)' : '○ Local SQLite Single-User Mode'}
           </span>
         </div>
       </div>
 
-      <form onSubmit={handleSaveApiConfig} className="flex flex-col gap-5 w-full">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="flex flex-col gap-5 w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Strowallet API Endpoint URL</label>
+            <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Supabase REST API Endpoint URL (https://xyz.supabase.co)</label>
             <div className="relative">
               <input
-                id="strowallet-url-input"
+                id="supabase-url-input"
                 type="url"
-                placeholder="https://api.strowallet.com/v1"
-                value={strowalletApiUrl}
-                onChange={(e) => setStrowalletApiUrl(e.target.value)}
+                placeholder="https://your-project.supabase.co"
+                value={supabaseUrl}
+                onChange={(e) => setSupabaseUrl(e.target.value)}
                 className="w-full p-2.5 pl-9 border border-slate-205 text-xs font-mono bg-slate-50 focus:bg-white rounded-xl outline-none"
-                required
               />
-              <Cpu className="absolute left-3.5 top-3.5 w-4 h-4 text-indigo-500" />
+              <Database className="absolute left-3.5 top-3.5 w-4 h-4 text-emerald-500" />
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Strowallet Developer Public Key</label>
+          <div className="flex flex-col gap-1.5 align-top">
+            <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Supabase Public Anon Key / JWT secret</label>
             <div className="relative">
               <input
-                id="strowallet-pub-key-input"
-                type="text"
-                placeholder="str_pub_live_..."
-                value={strowalletPublicKey}
-                onChange={(e) => setStrowalletPublicKey(e.target.value)}
-                className="w-full p-2.5 pl-9 border border-slate-205 text-xs font-mono bg-slate-50 focus:bg-white rounded-xl outline-none text-slate-800"
+                id="supabase-anon-key-input"
+                type={showSupabaseKey ? "text" : "password"}
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                value={supabaseAnonKey}
+                onChange={(e) => setSupabaseAnonKey(e.target.value)}
+                className="w-full p-2.5 pl-9 pr-10 border border-slate-205 text-xs font-mono bg-slate-50 focus:bg-white rounded-xl outline-none font-bold text-slate-800"
               />
-              <Key className="absolute left-3.5 top-3.5 w-4 h-4 text-indigo-500" />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[10px] font-black text-slate-455 uppercase tracking-widest block font-display">Strowallet Developer Secret Key</label>
-            <div className="relative">
-              <input
-                id="strowallet-sec-key-input"
-                type={showStrowalletSecret ? "text" : "password"}
-                placeholder="str_sec_live_..."
-                value={strowalletSecretKey}
-                onChange={(e) => setStrowalletSecretKey(e.target.value)}
-                 className="w-full p-2.5 pl-9 pr-10 border border-slate-205 text-xs font-mono bg-slate-50 focus:bg-white rounded-xl outline-none font-bold text-slate-800"
-              />
-              <KeyRound className="absolute left-3.5 top-3.5 w-4 h-4 text-indigo-500" />
+              <KeyRound className="absolute left-3.5 top-3.5 w-4 h-4 text-emerald-600" />
               <button
                 type="button"
-                onClick={() => setShowStrowalletSecret(!showStrowalletSecret)}
+                onClick={() => setShowSupabaseKey(!showSupabaseKey)}
                 className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-655 p-1 font-sans"
               >
-                {showStrowalletSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showSupabaseKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 pt-1">
+        {/* Diagnostic Actions & Handshake Panel */}
+        <div className="flex flex-wrap items-center gap-3 pt-2">
           <button
-            id="save-strowallet-keys-btn"
-            type="submit"
+            id="save-supabase-config-btn"
+            type="button"
+            onClick={handleSaveApiConfig}
             disabled={isSavingApi}
             className="px-5 py-2.5 bg-slate-900 border border-slate-950 hover:bg-black text-white text-xs font-bold font-display rounded-xl flex items-center gap-2 shadow-sm hover:shadow active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
           >
             {isSavingApi ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Saving Provider Settings...
+                Saving Credentials...
               </>
-            ) : 'Save Strowallet Configurations'}
+            ) : 'Save Supabase Credentials'}
           </button>
 
           <button
-            id="test-strowallet-connection-btn"
+            id="test-supabase-link-btn"
             type="button"
-            onClick={handleTestStrowalletConnection}
-            disabled={isTestingApi}
-            className="px-5 py-2.5 bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-105 text-xs font-bold font-display rounded-xl flex items-center gap-2 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+            onClick={handleTestSupabaseConnection}
+            disabled={isTestingSupabase}
+            className="px-5 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 text-xs font-bold font-display rounded-xl flex items-center gap-2 shadow-sm hover:shadow active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
           >
-            {isTestingApi ? (
+            {isTestingSupabase ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Testing link...
+                Verifying Handshake...
               </>
-            ) : 'Test Connection'}
+            ) : 'Test API Connection'}
+          </button>
+
+          <button
+            id="sync-supabase-db-btn"
+            type="button"
+            onClick={handleSyncSupabaseHistory}
+            disabled={isSyncingSupabase}
+            className="px-5 py-2.5 bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 text-xs font-bold font-display rounded-xl flex items-center gap-2 shadow-sm hover:shadow active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+          >
+            {isSyncingSupabase ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Synchronizing History...
+              </>
+            ) : 'Force Full Database Sync'}
           </button>
         </div>
-      </form>
 
-      <div className="p-3.5 bg-indigo-50/40 border border-indigo-100 rounded-2xl flex flex-col gap-1.5 text-[10px] text-slate-500 leading-relaxed font-sans">
-        <span>
-          <strong>Integration Ready:</strong> Once you configure your credentials, you will be able to dispatch live services from Strowallet in replacement of Sagecloud. Simply upload individual endpoint specifications to integrate any custom action.
-        </span>
+        {/* Handshake Result Console */}
+        {supabaseTestResult && (
+          <div className={`p-4 rounded-xl border flex flex-col gap-2 font-mono text-xs ${
+            supabaseTestResult.success 
+              ? 'bg-emerald-50/50 border-emerald-150 text-emerald-80s' 
+              : 'bg-rose-50/50 border-rose-150 text-rose-800'
+          }`}>
+            <span className="font-extrabold uppercase tracking-wider text-[9px] block">
+              {supabaseTestResult.success ? '✔ Handshake Result: SUCCESS' : '❌ Handshake Result: UNHEALTHY'}
+            </span>
+            <p className="font-medium font-sans leading-normal text-slate-600">
+              {supabaseTestResult.message}
+            </p>
+          </div>
+        )}
+
+        {/* SQL Schema expounder */}
+        <div className="p-4 bg-slate-50 border border-slate-101 rounded-2xl flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 font-display flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              SQL Schema DDL Definitions for Supabase SQL Editor
+            </span>
+          </div>
+          <p className="text-[10px] text-slate-400 font-medium font-sans">
+            To ensure successful auto-syncs, please copy and run this DDL command block within your Supabase project's SQL Editor to set up relational tables matching Waver's schema.
+          </p>
+          <pre className="bg-slate-900 border border-slate-950 p-4.5 rounded-xl font-mono text-[9px] text-slate-300 leading-relaxed overflow-x-auto whitespace-pre select-all shadow-sm">
+{`-- Create "users" table
+create table if not exists users (
+  id bigint primary key,
+  email text unique not null,
+  name text not null,
+  phone text not null,
+  wallet_balance double precision default 0.0 not null,
+  kyc_level text default 'Tier 1' not null,
+  role text default 'user' not null,
+  strowallet_account_number text,
+  is_pin_set integer default 1 not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- Create "transactions" table
+create table if not exists transactions (
+  id text primary key,
+  user_email text references users(email) on delete cascade,
+  type text not null,
+  amount double precision not null,
+  fee double precision default 0.0 not null,
+  status text not null,
+  timestamp text not null,
+  description text not null,
+  recipient text not null,
+  reference text unique not null,
+  details text
+);`}
+          </pre>
+        </div>
       </div>
     </div>
+
+
 
     {/* GitHub & Workspace Code Synchronization Portal */}
     <div className="bg-white rounded-2xl border border-slate-101 shadow-sm p-6 flex flex-col gap-6 w-full" id="github-sync-and-export">

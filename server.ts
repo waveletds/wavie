@@ -4,6 +4,7 @@ import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import { db, runMigrations } from './src/db/sqlite.ts';
 import { GoogleGenAI } from '@google/genai';
+import { createClient } from '@supabase/supabase-js';
 
 // Main Server Startup Function
 async function startServer() {
@@ -80,219 +81,32 @@ async function startServer() {
     };
   };
 
-  // Robust fetch helper for Strowallet REST API that dynamically resolves DNS/routing fallback issues
-  const robustFetchStrowallet = async (
-    configuredUrl: string,
-    path: string,
-    options: RequestInit
-  ): Promise<any> => {
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    const cleanConfiguredUrl = String(configuredUrl || 'https://api.strowallet.com/v1').replace(/\/$/, '');
-    
-    // Create a list of fallback base URLs to try
-    const urlsToTry: string[] = [];
-    
-    // 1. Try precisely what was configured
-    urlsToTry.push(`${cleanConfiguredUrl}${cleanPath}`);
-    
-    // 2. If it's the standard api.strowallet.com subdomain, add strowallet.com fallback paths
-    if (cleanConfiguredUrl.includes('api.strowallet.com')) {
-      urlsToTry.push(`${cleanConfiguredUrl.replace('api.strowallet.com', 'strowallet.com/api')}${cleanPath}`);
-      urlsToTry.push(`${cleanConfiguredUrl.replace('api.strowallet.com', 'strowallet.com')}${cleanPath}`);
-    } 
-    // 3. If it's strowallet.com, try strowallet.com/api or adding api subdomain
-    else if (cleanConfiguredUrl.includes('strowallet.com')) {
-      if (!cleanConfiguredUrl.includes('/api')) {
-        urlsToTry.push(`${cleanConfiguredUrl}/api${cleanPath}`);
-      }
-      urlsToTry.push(`${cleanConfiguredUrl.replace('strowallet.com', 'api.strowallet.com')}${cleanPath}`);
-    }
-    
-    // Also try HTTPS / HTTP variants if necessary, but keep SSL
-    const uniqueUrls = Array.from(new Set(urlsToTry));
-    let lastError: any = null;
-    
-    for (const targetUrl of uniqueUrls) {
-      try {
-        console.log(`[STROWALLET_ROBUST_FETCH] Contacting target URL: ${targetUrl}`);
-        const response = await fetch(targetUrl, options);
-        // If we get an acceptable response (status < 500 or not 404/502/503/504), return it immediately
-        if (response.ok || (response.status !== 404 && response.status < 500)) {
-          return response;
-        }
-        const errText = await response.text().catch(() => 'unknown error');
-        lastError = new Error(`HTTP ${response.status}: ${errText}`);
-      } catch (err: any) {
-        console.warn(`[STROWALLET_ROBUST_FETCH] Error contacting ${targetUrl}:`, err.message);
-        lastError = err;
-      }
-    }
-    
-    throw lastError || new Error('All candidate Strowallet URL targets failed.');
-  };
-
-  // Global helper to automatically ensure or migrate a user with a Strowallet customer & virtual bank account
-  const ensureStrowalletAccount = async (email: string) => {
+  // Global helper to automatically ensure or migrate a user with a virtual bank account
+  const ensureVirtualAccount = async (email: string) => {
     try {
       const user = await db('users').where({ email: String(email).trim() }).first();
       if (!user) return null;
 
-      // If already has Strowallet account number, return it
+      // If already has virtual account details, return it
       if (user.strowallet_account_number && user.strowallet_customer_id) {
         return user;
       }
 
-      console.log(`[STROWALLET_AUTO_MIGRATE] Resolving Strowallet credentials for ${email}...`);
-
-      // 1. Fetch Strowallet API configuration from db
-      let config = await db('api_configs').where({ user_email: 'iqleadsbloger@gmail.com' }).first();
-      if (!config || !config.strowallet_public_key) {
-        config = await db('api_configs').whereNotNull('strowallet_public_key').first();
-      }
-
-      const hasLiveKeys = !!(config && config.strowallet_public_key && config.strowallet_public_key.trim() !== '');
+      console.log(`[VIRTUAL_ACCOUNT] Resolving virtual credentials for ${email}...`);
 
       let customerId = user.strowallet_customer_id;
       let accountNumber = user.strowallet_account_number;
       let bankName = user.strowallet_bank_name;
       let accountName = user.strowallet_account_name;
 
-      if (hasLiveKeys) {
-        const apiUrl = config.strowallet_api_url || 'https://api.strowallet.com/v1';
-        const pubKey = config.strowallet_public_key;
-        const secKey = config.strowallet_secret_key;
-
-        // Try Live Strowallet Customer registration
-        if (!customerId) {
-          try {
-            const nameParts = (user.name || 'Wavie User').split(' ');
-            const firstName = nameParts[0] || 'Wavie';
-            const lastName = nameParts[1] || 'User';
-
-            // Try multiple candidate registration endpoints and parameters to fit all doc versions
-            const customerEndpoints = ['/customers', '/customer', '/customer/register'];
-            let custRes: any = null;
-            let lastCustErr = '';
-
-            for (const ep of customerEndpoints) {
-              try {
-                console.log(`[STROWALLET_CUSTOMER] Contacting customer registration endpoint ${ep}...`);
-                const res = await robustFetchStrowallet(apiUrl, ep, {
-                  method: 'POST',
-                  headers: {
-                    'public-key': pubKey,
-                    'secure-key': secKey || '',
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    firstName: firstName,
-                    lastName: lastName,
-                    first_name: firstName,
-                    last_name: lastName,
-                    email: user.email,
-                    phoneNumber: user.phone || '08000000000',
-                    phone_number: user.phone || '08000000000',
-                    phone: user.phone || '08000000000'
-                  }),
-                  signal: AbortSignal.timeout(10000)
-                });
-
-                if (res.ok) {
-                  custRes = res;
-                  break;
-                } else {
-                  lastCustErr = await res.text();
-                }
-              } catch (e: any) {
-                lastCustErr = e.message;
-              }
-            }
-
-            if (custRes && custRes.ok) {
-              const custData = await custRes.json();
-              customerId = custData.customer_id || custData.id || custData.customer_key || 
-                           (custData.data ? (custData.data.customer_id || custData.data.id || custData.data.customer_key) : null) || 
-                           (custData.customer ? (custData.customer.customer_id || custData.customer.id || custData.customer.customer_key) : null);
-              console.log(`[STROWALLET_SUCCESS] Created Customer ID: ${customerId}`);
-            } else {
-              console.warn(`[STROWALLET_WARN] Customer registration failed on all endpoints: ${lastCustErr}`);
-            }
-          } catch (e: any) {
-            console.log(`[STROWALLET_INFO] Customer registration offline or network blocked, falling back gracefully:`, e.message);
-          }
-        }
-
-        // Try Live Strowallet Virtual Account creation with robust endpoint checks
-        if (customerId && !accountNumber) {
-          try {
-            const endpoints = [
-              '/virtual-accounts/create', 
-              '/virtual-accounts', 
-              '/virtual-account/create',
-              '/virtual-account',
-              '/virtual-accounts/register'
-            ];
-            let vaRes: any = null;
-            let lastVaErr = '';
-            
-            for (const ep of endpoints) {
-              try {
-                console.log(`[STROWALLET_VIRTUAL_ACCOUNT] Contacting endpoint ${ep}...`);
-                const res = await robustFetchStrowallet(apiUrl, ep, {
-                  method: 'POST',
-                  headers: {
-                    'public-key': pubKey,
-                    'secure-key': secKey || '',
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                  },
-                  body: JSON.stringify({
-                    customer_id: customerId,
-                    customerId: customerId,
-                    customer_key: customerId,
-                    customerKey: customerId,
-                    account_type: 'NGN',
-                    accountType: 'NGN',
-                    currency: 'NGN'
-                  }),
-                  signal: AbortSignal.timeout(10000)
-                });
-                if (res.ok) {
-                  vaRes = res;
-                  break;
-                } else {
-                  lastVaErr = await res.text();
-                }
-              } catch (e: any) {
-                lastVaErr = e.message;
-              }
-            }
-
-            if (vaRes && vaRes.ok) {
-              const vaData = await vaRes.json();
-              accountNumber = vaData.account_number || vaData.accountNumber || (vaData.data ? (vaData.data.account_number || vaData.data.accountNumber) : null) || (vaData.virtual_account ? vaData.virtual_account.account_number : null);
-              bankName = vaData.bank_name || vaData.bankName || (vaData.data ? (vaData.data.bank_name || vaData.data.bankName) : null) || (vaData.virtual_account ? vaData.virtual_account.bank_name : null) || 'Sterling Bank';
-              accountName = vaData.account_name || vaData.accountName || (vaData.data ? (vaData.data.account_name || vaData.data.accountName) : null) || (vaData.virtual_account ? vaData.virtual_account.account_name : null) || `WAVIE / ${user.name}`;
-              console.log(`[STROWALLET_SUCCESS] Generated virtual account ${accountNumber} via Strowallet`);
-            } else {
-              console.warn(`[STROWALLET_WARN] Virtual account creation failed on all endpoints: ${lastVaErr}`);
-            }
-          } catch (e: any) {
-            console.log(`[STROWALLET_INFO] Virtual account creation offline or network blocked, falling back gracefully:`, e.message);
-          }
-        }
-      }
-
-      // Fallback mockup details if offline, testing, or not fully configured
       if (!customerId) {
-        customerId = `STRW-CST-${Math.floor(100000 + Math.random() * 899999)}`;
+        customerId = `WAVIE-CST-${Math.floor(100000 + Math.random() * 899999)}`;
       }
       if (!accountNumber) {
         const last8Digits = user.phone.startsWith('0') ? user.phone.substring(2) : user.phone.substring(1);
         accountNumber = `502${last8Digits.padEnd(7, '8')}`.substring(0, 10);
-        const strowalletBanks = ['Sterling Bank (Strowallet)', 'Wema Bank (Strowallet)', 'Providus Bank (Strowallet)'];
-        bankName = strowalletBanks[Math.floor(Math.random() * strowalletBanks.length)];
+        const banks = ['Sterling Bank', 'Wema Bank', 'Providus Bank'];
+        bankName = banks[Math.floor(Math.random() * banks.length)];
         accountName = `WAVIE / ${user.name.toUpperCase()}`;
       }
 
@@ -304,11 +118,78 @@ async function startServer() {
         strowallet_account_name: accountName
       });
 
-      console.log(`[STROWALLET_AUTO_MIGRATE] Resolved details for ${email}: Account ${accountNumber} (${bankName})`);
+      console.log(`[VIRTUAL_ACCOUNT] Resolved details for ${email}: Account ${accountNumber} (${bankName})`);
       return await db('users').where({ email: user.email }).first();
     } catch (err: any) {
-      console.log(`[STROWALLET_INFO] ensureStrowalletAccount error, fallback initiated:`, err.message);
+      console.log(`[VIRTUAL_ACCOUNT] ensureVirtualAccount error:`, err.message);
       return null;
+    }
+  };
+
+  // Helper to synchronize local data state into Supabase instance if configured
+  const syncLatestData = async (email: string) => {
+    try {
+      const config = await db('api_configs').where({ user_email: String(email) }).first();
+      if (!config || !config.supabase_url || !config.supabase_anon_key) {
+        return { success: false, error: 'Supabase credentials not configured' };
+      }
+
+      console.log(`[SUPABASE_SYNC] Initializing client for: ${config.supabase_url}`);
+      const client = createClient(config.supabase_url, config.supabase_anon_key);
+
+      // 1. Fetch user data
+      const user = await db('users').where({ email: String(email) }).first();
+      if (user) {
+        console.log(`[SUPABASE_SYNC] Upserting user profile: ${email}`);
+        const { error: userError } = await client.from('users').upsert({
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          phone: user.phone,
+          wallet_balance: user.wallet_balance,
+          kyc_level: user.kyc_level,
+          role: user.role,
+          strowallet_account_number: user.strowallet_account_number || null,
+          is_pin_set: user.is_pin_set
+        }, { onConflict: 'email' });
+        
+        if (userError) {
+          console.warn('[SUPABASE_SYNC_WARN] Users table upsert error:', userError.message);
+        }
+      }
+
+      // 2. Fetch latest 50 transactions
+      const transactions = await db('transactions')
+        .where({ user_email: String(email) })
+        .orderBy('timestamp', 'desc')
+        .limit(50);
+
+      if (transactions.length > 0) {
+        console.log(`[SUPABASE_SYNC] Upserting latest ${transactions.length} transactions...`);
+        const syncPayload = transactions.map(tx => ({
+          id: tx.id,
+          user_email: tx.user_email,
+          type: tx.type,
+          amount: tx.amount,
+          fee: tx.fee,
+          status: tx.status,
+          timestamp: tx.timestamp,
+          description: tx.description,
+          recipient: tx.recipient,
+          reference: tx.reference,
+          details: typeof tx.details === 'string' ? tx.details : JSON.stringify(tx.details || {})
+        }));
+
+        const { error: txError } = await client.from('transactions').upsert(syncPayload, { onConflict: 'reference' });
+        if (txError) {
+          console.warn('[SUPABASE_SYNC_WARN] Transactions table upsert error:', txError.message);
+        }
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.warn('[SUPABASE_SYNC_EXCEPTION] Sync failed:', err.message);
+      return { success: false, error: err.message };
     }
   };
 
@@ -346,7 +227,10 @@ async function startServer() {
       }
 
       if (user) {
-        user = await ensureStrowalletAccount(user.email);
+        user = await ensureVirtualAccount(user.email);
+        syncLatestData(user.email).catch(err => {
+          console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+        });
       }
 
       res.json({ success: true, user: mapDbUserToClient(user) });
@@ -430,7 +314,10 @@ async function startServer() {
       }
 
       if (user) {
-        user = await ensureStrowalletAccount(user.email);
+        user = await ensureVirtualAccount(user.email);
+        syncLatestData(user.email).catch(err => {
+          console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+        });
       }
 
       res.json({ success: true, user: mapDbUserToClient(user) });
@@ -564,6 +451,11 @@ async function startServer() {
       await db('users').where({ email }).update(updates);
 
       const updatedUser = await db('users').where({ email }).first();
+      if (updatedUser) {
+        syncLatestData(email).catch(err => {
+          console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+        });
+      }
       res.json({ success: true, user: mapDbUserToClient(updatedUser) });
     } catch (err) {
       next(err);
@@ -663,6 +555,9 @@ async function startServer() {
       });
 
       const updatedUser = await db('users').where({ email: userEmail }).first();
+      syncLatestData(userEmail).catch(err => {
+        console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+      });
       res.json({ success: true, message: `Wallet balance adjusted to ₦${newBalance.toLocaleString()}!`, user: mapDbUserToClient(updatedUser) });
     } catch (err) {
       next(err);
@@ -752,6 +647,11 @@ async function startServer() {
       }
 
       await db('transactions').where({ id: transactionId }).update({ status: status });
+      if (tx.user_email) {
+        syncLatestData(tx.user_email).catch(err => {
+          console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+        });
+      }
       res.json({ success: true, message: `Transaction status adjusted to ${status} successfully.` });
     } catch (err) {
       next(err);
@@ -772,6 +672,11 @@ async function startServer() {
         
       const mapped = dbTxList.map(mapDbTransactionToClient);
       res.json({ success: true, transactions: mapped });
+
+      // Non-blocking asynchronous sync to Supabase in background if credentials exist
+      syncLatestData(String(email)).catch(err => {
+        console.warn('[SUPABASE_AUTO_SYNC_BACKGROUND_ERR]', err.message);
+      });
     } catch (err) {
       next(err);
     }
@@ -836,6 +741,10 @@ async function startServer() {
       // Retrieve and deliver updated models to UI client
       const updatedUser = await db('users').where({ email }).first();
       const dbTx = await db('transactions').where({ id: tx.id }).first();
+
+      syncLatestData(email).catch(err => {
+        console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+      });
 
       res.json({ 
         success: true, 
@@ -916,7 +825,7 @@ async function startServer() {
   });
 
   // ==========================================
-  // 7.4.5. API: VTU Config & Sagecloud credentials
+  // 7.4.5. API: VTU Config & credentials
   // ==========================================
   
   // Retrieve configurations
@@ -931,15 +840,19 @@ async function startServer() {
       if (!config) {
         await db('api_configs').insert({
           user_email: String(email),
-          sagecloud_api_key: null,
-          sagecloud_api_url: 'https://api.sagecloud.ng/v1',
           paystack_public_key: null,
           paystack_secret_key: null,
           smm_api_key: null,
           smm_api_url: 'https://easy-smm-panel.com/api/v2',
-          strowallet_public_key: null,
-          strowallet_secret_key: null,
-          strowallet_api_url: 'https://api.strowallet.com/v1'
+          supabase_url: 'https://guzlvzkifizmskmwdfdk.supabase.co',
+          supabase_anon_key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1emx2emtpZml6bXNrbXdkZmRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNzk1NzIsImV4cCI6MjA5Njc1NTU3Mn0.SekayTDlb-5pRXbjRMA6bo2uBODO5YenOpf7zz9wqNc'
+        });
+        config = await db('api_configs').where({ user_email: String(email) }).first();
+      } else if (!config.supabase_url || !config.supabase_anon_key) {
+        // Automatically default empty/null URL or key to their project credentials
+        await db('api_configs').where({ user_email: String(email) }).update({
+          supabase_url: config.supabase_url || 'https://guzlvzkifizmskmwdfdk.supabase.co',
+          supabase_anon_key: config.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1emx2emtpZml6bXNrbXdkZmRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNzk1NzIsImV4cCI6MjA5Njc1NTU3Mn0.SekayTDlb-5pRXbjRMA6bo2uBODO5YenOpf7zz9wqNc'
         });
         config = await db('api_configs').where({ user_email: String(email) }).first();
       }
@@ -953,15 +866,12 @@ async function startServer() {
   app.post('/api/user/vtu-config', async (req: Request, res: Response, next: NextFunction) => {
     const { 
       email, 
-      sagecloudApiKey, 
-      sagecloudApiUrl, 
       paystackPublicKey, 
       paystackSecretKey, 
       smmApiKey, 
       smmApiUrl,
-      strowalletPublicKey,
-      strowalletSecretKey,
-      strowalletApiUrl
+      supabaseUrl,
+      supabaseAnonKey
     } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Email parameter required' });
@@ -972,27 +882,21 @@ async function startServer() {
       if (!config) {
         await db('api_configs').insert({
           user_email: email,
-          sagecloud_api_key: sagecloudApiKey || null,
-          sagecloud_api_url: sagecloudApiUrl || 'https://api.sagecloud.ng/v1',
           paystack_public_key: paystackPublicKey || null,
           paystack_secret_key: paystackSecretKey || null,
           smm_api_key: smmApiKey || null,
           smm_api_url: smmApiUrl || 'https://easy-smm-panel.com/api/v2',
-          strowallet_public_key: strowalletPublicKey || null,
-          strowallet_secret_key: strowalletSecretKey || null,
-          strowallet_api_url: strowalletApiUrl || 'https://api.strowallet.com/v1'
+          supabase_url: supabaseUrl || 'https://guzlvzkifizmskmwdfdk.supabase.co',
+          supabase_anon_key: supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1emx2emtpZml6bXNrbXdkZmRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNzk1NzIsImV4cCI6MjA5Njc1NTU3Mn0.SekayTDlb-5pRXbjRMA6bo2uBODO5YenOpf7zz9wqNc'
         });
       } else {
         await db('api_configs').where({ user_email: email }).update({
-          sagecloud_api_key: sagecloudApiKey !== undefined ? sagecloudApiKey : null,
-          sagecloud_api_url: sagecloudApiUrl !== undefined ? sagecloudApiUrl : 'https://api.sagecloud.ng/v1',
           paystack_public_key: paystackPublicKey !== undefined ? paystackPublicKey : null,
           paystack_secret_key: paystackSecretKey !== undefined ? paystackSecretKey : null,
           smm_api_key: smmApiKey !== undefined ? smmApiKey : null,
           smm_api_url: smmApiUrl !== undefined ? smmApiUrl : 'https://easy-smm-panel.com/api/v2',
-          strowallet_public_key: strowalletPublicKey !== undefined ? strowalletPublicKey : null,
-          strowallet_secret_key: strowalletSecretKey !== undefined ? strowalletSecretKey : null,
-          strowallet_api_url: strowalletApiUrl !== undefined ? strowalletApiUrl : 'https://api.strowallet.com/v1'
+          supabase_url: supabaseUrl || 'https://guzlvzkifizmskmwdfdk.supabase.co',
+          supabase_anon_key: supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1emx2emtpZml6bXNrbXdkZmRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNzk1NzIsImV4cCI6MjA5Njc1NTU3Mn0.SekayTDlb-5pRXbjRMA6bo2uBODO5YenOpf7zz9wqNc'
         });
       }
       const updatedConfig = await db('api_configs').where({ user_email: email }).first();
@@ -1002,167 +906,68 @@ async function startServer() {
     }
   });
 
-  // Try-out / Test Connection with Sagecloud endpoint
-  app.post('/api/user/vtu-config/test', async (req: Request, res: Response) => {
-    const { sagecloudApiKey, sagecloudApiUrl } = req.body;
-    const url = sagecloudApiUrl || 'https://api.sagecloud.ng/v1';
-
-    if (!sagecloudApiKey || sagecloudApiKey.trim() === '') {
-      return res.status(400).json({ error: 'An API key must be provided to run tests.' });
-    }
-
-    console.log(`[SAGECLOUD_TEST] Testing connection to base URL: ${url}`);
-
-    // If it's a test or sandbox key, respond with custom diagnostic mockup status
-    if (sagecloudApiKey.toLowerCase().includes('sandbox') || sagecloudApiKey.toLowerCase().includes('test')) {
-      return res.json({
-        success: true,
-        message: 'Successfully established sandboxed tunnel to Sagecloud development portal.',
-        balance: 75000.0,
-        merchantName: 'Mock Sagecloud Sandbox Merchant',
-        status: 'ACTIVE'
-      });
+  // Test Supabase connection and check if user/transactions tables or DDL models are live
+  app.post('/api/user/supabase/test', async (req: Request, res: Response) => {
+    const { supabaseUrl, supabaseAnonKey } = req.body;
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return res.status(400).json({ error: 'Supabase URL and Anon Key are required.' });
     }
 
     try {
-      // Test multiple common balance endpoints of Sagecloud as fallback
-      const endpointsToTry = ['/balance', '/wallet/balance', '/user/balance'];
-      let lastErr: any = null;
-      let successData: any = null;
+      console.log(`[SUPABASE_TEST] Verifying server connection credentials with: ${supabaseUrl}`);
+      const client = createClient(supabaseUrl, supabaseAnonKey);
 
-      for (const endpoint of endpointsToTry) {
-        try {
-          const testUrl = `${url.replace(/\/$/, '')}${endpoint}`;
-          console.log(`[SAGECLOUD_TEST] Trying endpoint: ${testUrl}`);
-          
-          const response = await fetch(testUrl, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${sagecloudApiKey}`,
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            signal: AbortSignal.timeout(6000) // 6 seconds timeout
+      // Try reading users or tables in schema
+      const { data, error } = await client.from('users').select('email').limit(1);
+
+      if (error) {
+        // Code PGRST116 means empty result, that's completely successful! 
+        // Code '42P01' is Postgres standard for "relation does not exist" - meaning Supabase connected fine, but tables need to be created
+        if (error.code === '42P01' || error.message?.includes('relation "users" does not exist')) {
+          return res.json({
+            success: true,
+            message: 'Direct API connection established successfully! However, the target PostgreSQL database does not have the "users" table yet. Please run the provided SQL schema definitions to initialize your Supabase tables.',
+            tablesExist: false
           });
-
-          if (response.ok) {
-            const data = await response.json();
-            successData = data;
-            break;
-          } else {
-            const errText = await response.text();
-            lastErr = `Response ${response.status}: ${errText}`;
-          }
-        } catch (e: any) {
-          lastErr = e.message;
         }
-      }
-
-      if (successData) {
-        return res.json({
-          success: true,
-          message: 'Connection successfully established and verified!',
-          balance: successData.balance !== undefined ? successData.balance : (successData.data?.balance || 'Not specified'),
-          merchantName: successData.username || successData.fullname || successData.data?.merchant_name || 'Sagecloud Merchant Client',
-          status: 'ACTIVE'
+        return res.status(400).json({
+          error: `Supabase returned authentication/permission error: ${error.message} (Code: ${error.code})`
         });
       }
 
-      // If we fall back here, we show the precise error so the developer can review what was returned
-      return res.status(400).json({
-        error: `Authentication failed or endpoint unreachable. Diagnostic output: ${lastErr || 'Unresponsive target server'}`
+      return res.json({
+        success: true,
+        message: 'Direct communication successfully established & verified! Supabase is fully configured and the "users" schema is ready.',
+        tablesExist: true
       });
-
     } catch (err: any) {
-      return res.status(500).json({ error: `Network exception error: ${err.message}` });
+      return res.status(500).json({ error: `Connection failed with network level error: ${err.message}` });
     }
   });
 
-  // Try-out / Test Connection with Strowallet endpoint
-  app.post('/api/user/strowallet-config/test', async (req: Request, res: Response) => {
-    const { strowalletPublicKey, strowalletSecretKey, strowalletApiUrl } = req.body;
-    const url = strowalletApiUrl || 'https://api.strowallet.com/v1';
-
-    if (!strowalletPublicKey || strowalletPublicKey.trim() === '') {
-      return res.status(400).json({ error: 'A Public API key must be provided to run tests.' });
-    }
-
-    console.log(`[STROWALLET_TEST] Testing connection to base URL: ${url}`);
-
-    // If it's a mock key, respond with custom diagnostic mockup status
-    const isSandboxKey = strowalletPublicKey.toLowerCase().includes('mock_key') || 
-                        strowalletPublicKey.toLowerCase() === 'mock';
-
-    if (isSandboxKey) {
-      return res.json({
-        success: true,
-        message: 'Successfully established sandboxed tunnel to Strowallet developer network.',
-        balance: 1420500.0,
-        merchantName: 'Mock Strowallet Reseller Client',
-        status: 'ACTIVE'
-      });
+  // Force Full Synced Backup of standard User & transaction history to Supabase
+  app.post('/api/user/supabase/sync', async (req: Request, res: Response) => {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email parameter required' });
     }
 
     try {
-      // Test multiple common balance/wallet info endpoints of Strowallet
-      const endpointsToTry = ['/wallet/balance', '/balance', '/merchant/balance', '/wallet/info', '/profile'];
-      let lastErr: any = null;
-      let successData: any = null;
-
-      for (const endpoint of endpointsToTry) {
-        try {
-          console.log(`[STROWALLET_TEST] Trying endpoint: ${endpoint}`);
-          
-          const response = await robustFetchStrowallet(url, endpoint, {
-            method: 'GET',
-            headers: {
-              'public-key': strowalletPublicKey,
-              'secure-key': strowalletSecretKey || '',
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            signal: AbortSignal.timeout(6000) // 6 seconds timeout
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            successData = data;
-            break;
-          } else {
-            const errText = await response.text();
-            lastErr = `Response ${response.status}: ${errText}`;
-          }
-        } catch (e: any) {
-          lastErr = e.message;
-        }
-      }
-
-      if (successData) {
-        // Handle common Strowallet response payload properties
-        const balance = successData.balance !== undefined ? successData.balance :
-                        (successData.wallet?.balance !== undefined ? successData.wallet.balance :
-                        (successData.data?.balance !== undefined ? successData.data.balance : 'Verified'));
-        
-        const mName = successData.merchantName || successData.fullname || successData.username ||
-                     (successData.data?.merchant_name || 'Strowallet Merchant Partner');
-
+      const result = await syncLatestData(String(email));
+      if (result.success) {
         return res.json({
           success: true,
-          message: 'Strowallet API Verified and Authenticated Successfully!',
-          balance: balance,
-          merchantName: mName,
-          status: 'ACTIVE'
+          message: 'All local transaction records and account metadata profiles have been mirrored to Supabase successfully!'
         });
+      } else {
+        return res.status(400).json({ error: result.error });
       }
-
-      return res.status(400).json({
-        error: `Authentication failed or endpoint unreachable. Diagnostic output: ${lastErr || 'Unresponsive target server'}`
-      });
-
     } catch (err: any) {
-      return res.status(500).json({ error: `Network exception error: ${err.message}` });
+      return res.status(500).json({ error: `Sync execution triggered network error: ${err.message}` });
     }
   });
+
+
 
   // ==========================================
   // 7.4.8. API: Git Commits & Repository Sync Simulation Diagnostics
@@ -1241,225 +1046,14 @@ async function startServer() {
 
       let finalDetails = { ...(tx.details || {}) };
 
-      // Load remote Sagecloud & Strowallet configurations for the user
+      // Load configurations for the user
       const config = await db('api_configs').where({ user_email: email }).first();
-      const apiKey = config ? config.sagecloud_api_key : null;
-      const apiUrl = config ? config.sagecloud_api_url : 'https://api.sagecloud.ng/v1';
       const smmApiKey = config ? config.smm_api_key : null;
       const smmApiUrl = config ? config.smm_api_url : 'https://easy-smm-panel.com/api/v2';
-      const strowalletPublicKey = config ? config.strowallet_public_key : null;
-      const strowalletSecretKey = config ? config.strowallet_secret_key : null;
-      const strowalletApiUrl = config ? config.strowallet_api_url : 'https://api.strowallet.com/v1';
 
-      const isLiveSagecloud = (apiKey && apiKey.trim() !== '' && !apiKey.toLowerCase().includes('sandbox') && !apiKey.toLowerCase().includes('mock') && !apiKey.toLowerCase().includes('test') && tx.type !== 'smm');
-      // Strowallet is a Virtual Account and Card platform, not a VTU (Airtime, Data, Bills) vendor.
-      // Therefore, standard VTU purchase transactions must go via Sagecloud or sandboxed simulations.
-      const isLiveStrowallet = false;
       const isLiveSmm = (tx.type === 'smm' && smmApiKey && smmApiKey.trim() !== '' && !smmApiKey.toLowerCase().includes('sandbox') && !smmApiKey.toLowerCase().includes('mock') && !smmApiKey.toLowerCase().includes('test'));
 
-      // 2. Call live Strowallet API if Strowallet was specifically configured and armed
-      if (isLiveStrowallet) {
-        console.log(`[STROWALLET_API] Routing live ${tx.type} transaction via Strowallet API!`);
-        
-        let pathStr = '/airtime';
-        let requestBody: any = {};
-        
-        if (tx.type === 'airtime') {
-          pathStr = '/airtime';
-          requestBody = {
-            phoneNumber: tx.recipient,
-            phone: tx.recipient,
-            phone_number: tx.recipient,
-            amount: tx.amount,
-            network: tx.details?.network || 'MTN',
-            operator: tx.details?.network || 'MTN',
-            reference: tx.reference,
-            customer_reference: tx.reference
-          };
-        } else if (tx.type === 'data') {
-          pathStr = '/data';
-          requestBody = {
-            phoneNumber: tx.recipient,
-            phone: tx.recipient,
-            phone_number: tx.recipient,
-            amount: tx.amount,
-            planCode: tx.details?.planId,
-            plan_code: tx.details?.planId,
-            network: tx.details?.network || 'MTN',
-            operator: tx.details?.network || 'MTN',
-            reference: tx.reference
-          };
-        } else if (tx.type === 'electricity') {
-          pathStr = '/utility/electricity';
-          requestBody = {
-            disco: tx.details?.disco || 'ikedc',
-            meterNumber: tx.recipient,
-            meter_number: tx.recipient,
-            amount: tx.amount,
-            reference: tx.reference
-          };
-        } else if (tx.type === 'cable') {
-          pathStr = '/utility/cable';
-          requestBody = {
-            provider: tx.details?.provider || 'dstv',
-            plan: tx.details?.packageName || 'dstv-yanga',
-            iucNumber: tx.recipient,
-            iuc_number: tx.recipient,
-            reference: tx.reference
-          };
-        } else if (tx.type === 'education') {
-          pathStr = '/utility/pay';
-          requestBody = {
-            exam: tx.details?.examType || 'waec',
-            amount: tx.amount,
-            reference: tx.reference
-          };
-        }
-
-        try {
-          console.log(`[STROWALLET_REQUEST] Calling path ${pathStr} with reference ${tx.reference}`);
-          
-          const gatewayResponse = await robustFetchStrowallet(strowalletApiUrl, pathStr, {
-            method: 'POST',
-            headers: {
-              'public-key': strowalletPublicKey!,
-              'secure-key': strowalletSecretKey || '',
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify(requestBody),
-            signal: AbortSignal.timeout(15000) // 15s timeout
-          });
-
-          if (!gatewayResponse.ok) {
-            const errBody = await gatewayResponse.text();
-            console.error(`[STROWALLET_ERROR] Request failed with status ${gatewayResponse.status}: ${errBody}`);
-            
-            let parsedErr = `HTTP ${gatewayResponse.status}: ${errBody}`;
-            try {
-              const parsedJson = JSON.parse(errBody);
-              parsedErr = parsedJson.message || parsedJson.error || parsedErr;
-            } catch (e) {}
-            
-            return res.status(400).json({
-              error: `Strowallet Merchant Gateway Error: ${parsedErr}`
-            });
-          }
-
-          const responseData = await gatewayResponse.json();
-          console.log(`[STROWALLET_SUCCESS] API response data:`, JSON.stringify(responseData));
-
-          finalDetails.gatewayResponseCode = responseData.status || responseData.code || 'SUCCESS';
-          finalDetails.processedBy = 'Strowallet LIVE Gateway';
-          if (responseData.reference || responseData.data?.reference) {
-            finalDetails.token = responseData.reference || responseData.data?.reference;
-          }
-
-        } catch (err: any) {
-          console.error(`[STROWALLET_EXCEPTION] Network failure calling Strowallet:`, err);
-          return res.status(500).json({
-            error: `Communication failed with Strowallet gateway server: ${err.message}`
-          });
-        }
-      } else if (isLiveSagecloud) {
-        console.log(`[SAGECLOUD_API] Routing live ${tx.type} transaction via Sagecloud.ng!`);
-        
-        let pathStr = '/airtime';
-        let requestBody: any = {};
-        
-        if (tx.type === 'airtime') {
-          pathStr = '/airtime';
-          requestBody = {
-            network: tx.details?.network || 'MTN',
-            amount: tx.amount,
-            phone: tx.recipient,
-            reference: tx.reference
-          };
-        } else if (tx.type === 'data') {
-          pathStr = '/data';
-          requestBody = {
-            network: tx.details?.network || 'MTN',
-            phone: tx.recipient,
-            plan: tx.details?.planName || tx.details?.packageName || '1GB',
-            plan_code: tx.details?.planId,
-            reference: tx.reference
-          };
-        } else if (tx.type === 'electricity') {
-          pathStr = '/electricity/pay';
-          requestBody = {
-            disco: tx.details?.disco || 'ikedc',
-            meter: tx.recipient,
-            amount: tx.amount,
-            reference: tx.reference
-          };
-        } else if (tx.type === 'cable') {
-          pathStr = '/cable/pay';
-          requestBody = {
-            provider: tx.details?.provider || 'dstv',
-            plan: tx.details?.packageName || 'dstv-yanga',
-            iuc: tx.recipient,
-            reference: tx.reference
-          };
-        } else if (tx.type === 'education') {
-          pathStr = '/education/pay';
-          requestBody = {
-            exam: tx.details?.examType || 'waec',
-            amount: tx.amount,
-            reference: tx.reference
-          };
-        }
-
-        try {
-          const targetUrl = `${apiUrl.replace(/\/$/, '')}${pathStr}`;
-          console.log(`[SAGECLOUD_REQUEST] Calling ${targetUrl} with reference ${tx.reference}`);
-          
-          const gatewayResponse = await fetch(targetUrl, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${apiKey}`,
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify(requestBody),
-            signal: AbortSignal.timeout(15000) // 15s timeout
-          });
-
-          if (!gatewayResponse.ok) {
-            const errBody = await gatewayResponse.text();
-            console.error(`[SAGECLOUD_ERROR] Request failed with status ${gatewayResponse.status}: ${errBody}`);
-            
-            let parsedErr = `HTTP ${gatewayResponse.status}: ${errBody}`;
-            try {
-              const parsedJson = JSON.parse(errBody);
-              parsedErr = parsedJson.message || parsedJson.error || parsedErr;
-            } catch (e) {}
-            
-            return res.status(400).json({
-              error: `Sagecloud VTU Gateway Error: ${parsedErr}`
-            });
-          }
-
-          const responseData = await gatewayResponse.json();
-          console.log(`[SAGECLOUD_SUCCESS] API response data:`, JSON.stringify(responseData));
-
-          // Map dynamic tokens/codes returned by Sagecloud API
-          if (responseData.token || responseData.data?.token) {
-            finalDetails.token = responseData.token || responseData.data?.token;
-          }
-          if (responseData.pin || responseData.data?.pins) {
-            finalDetails.pin = responseData.pin || responseData.data?.pins[0]?.pin || responseData.pin;
-            finalDetails.pins = responseData.data?.pins || finalDetails.pins;
-          }
-          finalDetails.gatewayResponseCode = responseData.status || responseData.code || 'SUCCESS';
-          finalDetails.processedBy = 'Sagecloud LIVE Gateway';
-
-        } catch (err: any) {
-          console.error(`[SAGECLOUD_EXCEPTION] Network failure calling Sagecloud VTU:`, err);
-          return res.status(500).json({
-            error: `Communication failed with Sagecloud VTU gateway server: ${err.message}`
-          });
-        }
-      } else if (isLiveSmm) {
+      if (isLiveSmm) {
         console.log(`[SMM_PANEL_API] Routing live SMM transaction via: ${smmApiUrl}`);
         try {
           const params = new URLSearchParams();
@@ -1508,7 +1102,7 @@ async function startServer() {
         }
       } else {
         // Enforce sandbox simulation outputs for test exploration
-        finalDetails.processedBy = 'Sagecloud Safe Sandbox (Interactive)';
+        finalDetails.processedBy = 'Safe Sandbox (Interactive)';
         
         if (tx.type === 'electricity') {
           const p1 = Math.floor(1000 + Math.random() * 9000);
@@ -1609,6 +1203,10 @@ async function startServer() {
         .where({ user_email: email })
         .orderBy('timestamp', 'desc')
         .limit(2);
+
+      syncLatestData(email).catch(err => {
+        console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+      });
 
       res.json({
         success: true,
@@ -1751,6 +1349,10 @@ async function startServer() {
         .orderBy('timestamp', 'desc')
         .limit(2);
 
+      syncLatestData(email).catch(err => {
+        console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+      });
+
       res.json({
         success: true,
         user: mapDbUserToClient(updatedUser),
@@ -1870,6 +1472,10 @@ async function startServer() {
             .orderBy('timestamp', 'desc')
             .limit(2);
 
+          syncLatestData(customerEmail).catch(err => {
+            console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+          });
+
           return res.json({
             success: true,
             verified: true,
@@ -1937,6 +1543,10 @@ async function startServer() {
           .where({ user_email: email })
           .orderBy('timestamp', 'desc')
           .limit(2);
+
+        syncLatestData(email).catch(err => {
+          console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+        });
 
         return res.json({
           success: true,
@@ -2133,10 +1743,10 @@ async function startServer() {
     return res.status(200).json({ status: 'success', message: 'Assigned event verified and recorded.' });
   });
 
-  // Secure Strowallet Dynamic Virtual Account Funding Webhook
+  // Secure Dynamic Virtual Account Funding Webhook
   app.post('/api/strowallet/webhook', async (req: Request, res: Response, next: NextFunction) => {
     const payload = req.body || {};
-    console.log('[STROWALLET_WEBHOOK] Notification payload received:', JSON.stringify(payload));
+    console.log('[AUTO_BANK_WEBHOOK] Notification payload received:', JSON.stringify(payload));
 
     const eventName = payload.event || payload.type || 'vaccount.credited';
     const dataObj = payload.data || payload;
@@ -2145,16 +1755,16 @@ async function startServer() {
     const customerId = dataObj.customer_id || dataObj.customer || dataObj.customerId;
     const accountNumber = dataObj.account_number || dataObj.accountnumber || dataObj.virtual_account_number;
     const amountNGN = parseFloat(dataObj.amount) || 0;
-    const reference = dataObj.reference || dataObj.txRef || dataObj.txKey || `STRW-WEB-${Date.now()}`;
+    const reference = dataObj.reference || dataObj.txRef || dataObj.txKey || `AUTOBANK-WEB-${Date.now()}`;
 
     if (amountNGN <= 0) {
-      console.warn('[STROWALLET_WEBHOOK] Received zero or negative funding notification. Ignored.');
+      console.warn('[AUTO_BANK_WEBHOOK] Received zero or negative funding notification. Ignored.');
       return res.status(200).json({ success: true, message: 'Zero value event ignored.' });
     }
 
     try {
       await db.transaction(async (trx) => {
-        // Match user by Strowallet identifiers, falls back to matching by email or phone
+        // Match user by database identifiers, falls back to matching by email or phone
         let userObj = null;
         if (customerId) {
           userObj = await trx('users').where({ strowallet_customer_id: customerId }).first();
@@ -2167,7 +1777,7 @@ async function startServer() {
         }
 
         if (!userObj) {
-          console.error(`[STROWALLET_WEBHOOK] Match fail: customerId ${customerId}, accountNum ${accountNumber}`);
+          console.error(`[AUTO_BANK_WEBHOOK] Match fail: customerId ${customerId}, accountNum ${accountNumber}`);
           throw new Error('USER_NOT_FOUND');
         }
 
@@ -2179,22 +1789,22 @@ async function startServer() {
           await trx('transactions').where({ reference }).update({
             status: 'success',
             amount: amountNGN,
-            description: `Funded +₦${amountNGN.toLocaleString()} securely via Strowallet Webhook Notification`
+            description: `Funded +₦${amountNGN.toLocaleString()} securely via Auto-Bank Webhook Notification`
           });
         } else {
           await trx('transactions').insert({
-            id: `tx_fund_strow_${Date.now()}`,
+            id: `tx_fund_vbank_${Date.now()}`,
             user_email: userObj.email,
             type: 'funding',
             amount: amountNGN,
             fee: 0,
             status: 'success',
             timestamp: new Date().toISOString(),
-            description: `Funded +₦${amountNGN.toLocaleString()} securely via Strowallet Virtual Account Transfer`,
+            description: `Funded +₦${amountNGN.toLocaleString()} securely via Virtual Account Transfer`,
             recipient: 'Primary wallet',
             reference: reference,
             details: JSON.stringify({
-              gateway: 'strowallet_webhook',
+              gateway: 'virtual_bank_webhook',
               customerId: customerId || null,
               accountNumber: accountNumber || null,
               payload: dataObj
@@ -2204,7 +1814,7 @@ async function startServer() {
 
         const currentBalance = userObj.wallet_balance || 0;
         await trx('users').where({ id: userObj.id }).update({ wallet_balance: currentBalance + amountNGN });
-        console.log(`[STROWALLET_WEBHOOK] Successfully credited +₦${amountNGN} to user ${userObj.email}`);
+        console.log(`[AUTO_BANK_WEBHOOK] Successfully credited +₦${amountNGN} to user ${userObj.email}`);
       });
 
       return res.status(200).json({ success: true, message: 'Webhook processing completed successfully.' });
@@ -2215,7 +1825,7 @@ async function startServer() {
       if (err.message === 'DUPLICATE_REFERENCE_DETECTED') {
         return res.status(200).json({ success: true, message: 'Already processed transaction reference' });
       }
-      console.error('[STROWALLET_WEBHOOK] Exception occurred:', err.message);
+      console.error('[AUTO_BANK_WEBHOOK] Exception occurred:', err.message);
       return res.status(500).json({ error: err.message });
     }
   });
