@@ -36,43 +36,7 @@ const INITIAL_BENEFICIARIES: SavedBeneficiary[] = [
   { id: 'b4', type: 'iuc', name: 'Parlour DSTV', value: '10987654321', provider: 'DStv (MultiChoice)' }
 ];
 
-const INITIAL_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'tx1',
-    type: 'funding',
-    amount: 15000,
-    fee: 0,
-    status: 'success',
-    timestamp: new Date(Date.now() - 3600000 * 24).toISOString(), // 1 day ago
-    description: 'Dynamic Virtual Bank Auto-Funding',
-    recipient: 'Wema Bank Auto-Link',
-    reference: 'TN-FUND-83910839',
-  },
-  {
-    id: 'tx2',
-    type: 'airtime',
-    amount: 1000,
-    fee: 0,
-    status: 'success',
-    timestamp: new Date(Date.now() - 3600000 * 5).toISOString(), // 5 hours ago
-    description: 'MTN Airtime purchase for 08033221144',
-    recipient: '08033221144',
-    reference: 'TN-AIR-33041928',
-    details: { network: 'MTN' }
-  },
-  {
-    id: 'tx3',
-    type: 'data',
-    amount: 1200,
-    fee: 0,
-    status: 'success',
-    timestamp: new Date(Date.now() - 3600000 * 2).toISOString(), // 2 hours ago
-    description: 'Airtel Monthly Bundle 2GB',
-    recipient: '08129876543',
-    reference: 'TN-DAT-22091823',
-    details: { network: 'Airtel', planName: 'Monthly Standard 2GB' }
-  }
-];
+const INITIAL_TRANSACTIONS: Transaction[] = [];
 
 export default function App() {
   // Locale state
@@ -128,10 +92,10 @@ export default function App() {
       name: 'Olawale Joseph',
       email: 'iqleadsbloger@gmail.com',
       phone: '08034567890',
-      walletBalance: 24750,
+      walletBalance: 0,
       referralCode: 'TOPUP-9NGA-77',
-      referredCount: 3,
-      referralEarnings: 1500,
+      referredCount: 0,
+      referralEarnings: 0,
       kycLevel: 'Tier 1',
       transactionPin: '1111', // default sandboxed transaction pin
       isPinSet: true,
@@ -344,13 +308,12 @@ export default function App() {
             }
           }
 
-          // C. Align local profile registration fields (name, phone, pin, balance) to SQL server configuration
+          // C. Align local profile registration fields (name, phone, pin) to SQL server configuration
           if (serverUser) {
             const hasProfileMismatch = 
               serverUser.name !== user.name || 
               serverUser.phone !== user.phone || 
-              serverUser.transactionPin !== user.transactionPin ||
-              Math.abs(serverUser.walletBalance - user.walletBalance) > 1;
+              serverUser.transactionPin !== user.transactionPin;
 
             if (hasProfileMismatch && !hasOfflineChanges) {
               try {
@@ -362,7 +325,6 @@ export default function App() {
                     name: user.name,
                     phone: user.phone,
                     transactionPin: user.transactionPin,
-                    walletBalance: user.walletBalance,
                   })
                 });
                 const updateData = await updateRes.json();

@@ -220,22 +220,27 @@ async function seedDatabase() {
       email: defaultEmail,
       phone: '08034567890',
       name: 'Olawale Joseph',
-      wallet_balance: 24750.0,
+      wallet_balance: 0.0,
       referral_code: 'TOPUP-9NGA-77',
-      referred_count: 3,
-      referral_earnings: 1500.0,
+      referred_count: 0,
+      referral_earnings: 0.0,
       kyc_level: 'Tier 1',
       transaction_pin: '1111',
       is_pin_set: 1,
       role: 'super_admin'
     });
-    console.log('✔ Seeded default profile for iqleadsbloger@gmail.com.');
+    console.log('✔ Seeded default clean profile for iqleadsbloger@gmail.com.');
   } else {
-    // Make sure default user is always marked as super_admin
-    await db('users').where({ email: defaultEmail }).update({ role: 'super_admin' });
+    // Make sure default user is always marked as super_admin, and clear demo balance/stats
+    await db('users').where({ email: defaultEmail }).update({ 
+      role: 'super_admin',
+      wallet_balance: 0.0,
+      referred_count: 0,
+      referral_earnings: 0.0
+    });
   }
 
-  // Ensure Admin Demo User
+  // Ensure Admin Demo User starts clean
   const adminEmail = 'admin@topup.ng';
   const adminUser = await db('users').where({ email: adminEmail }).first();
   if (!adminUser) {
@@ -243,7 +248,7 @@ async function seedDatabase() {
       email: adminEmail,
       phone: '08011112222',
       name: 'Femi Johnson (Admin)',
-      wallet_balance: 50000.0,
+      wallet_balance: 0.0,
       referral_code: 'ADMIN-TOPUP',
       referred_count: 0,
       referral_earnings: 0.0,
@@ -253,9 +258,13 @@ async function seedDatabase() {
       role: 'admin'
     });
     console.log('✔ Seeded admin demo profile admin@topup.ng.');
+  } else {
+    await db('users').where({ email: adminEmail }).update({
+      wallet_balance: 0.0
+    });
   }
 
-  // Ensure Normal Demo User
+  // Ensure Normal Demo User starts clean
   const customerEmail = 'customer@topup.ng';
   const customerUser = await db('users').where({ email: customerEmail }).first();
   if (!customerUser) {
@@ -263,16 +272,22 @@ async function seedDatabase() {
       email: customerEmail,
       phone: '08033334444',
       name: 'Chidi Adebayo (User)',
-      wallet_balance: 1250.0,
+      wallet_balance: 0.0,
       referral_code: 'CHIDI-SHARE',
-      referred_count: 1,
-      referral_earnings: 500.0,
+      referred_count: 0,
+      referral_earnings: 0.0,
       kyc_level: 'Tier 1',
       transaction_pin: '1111',
       is_pin_set: 1,
       role: 'user'
     });
     console.log('✔ Seeded regular customer demo profile customer@topup.ng.');
+  } else {
+    await db('users').where({ email: customerEmail }).update({
+      wallet_balance: 0.0,
+      referred_count: 0,
+      referral_earnings: 0.0
+    });
   }
 
   // Check default api configurations
@@ -297,53 +312,9 @@ async function seedDatabase() {
     console.log('✔ Updated API configs with requested live Paystack & Strowallet keys.');
   }
 
-  // Check transactions count
-  const txCount = await db('transactions').count('id as val').first();
-  const txs = txCount ? Number((txCount as any).val) : 0;
-  if (txs === 0) {
-    await db('transactions').insert([
-      {
-        id: 'tx1',
-        user_email: defaultEmail,
-        type: 'funding',
-        amount: 15000.0,
-        fee: 0.0,
-        status: 'success',
-        timestamp: new Date(Date.now() - 3600000 * 24).toISOString(),
-        description: 'Dynamic Virtual Bank Auto-Funding',
-        recipient: 'Wema Bank Auto-Link',
-        reference: 'TN-FUND-83910839',
-        details: null
-      },
-      {
-        id: 'tx2',
-        user_email: defaultEmail,
-        type: 'airtime',
-        amount: 1000.0,
-        fee: 0.0,
-        status: 'success',
-        timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
-        description: 'MTN Airtime purchase for 08033221144',
-        recipient: '08033221144',
-        reference: 'TN-AIR-33041928',
-        details: JSON.stringify({ network: 'MTN' })
-      },
-      {
-        id: 'tx3',
-        user_email: defaultEmail,
-        type: 'data',
-        amount: 1200.0,
-        fee: 0.0,
-        status: 'success',
-        timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
-        description: 'Airtel Monthly Bundle 2GB',
-        recipient: '08129876543',
-        reference: 'TN-DAT-22091823',
-        details: JSON.stringify({ network: 'Airtel', planName: 'Monthly Standard 2GB' })
-      }
-    ]);
-    console.log('✔ Seeded default transaction history items.');
-  }
+  // Always clean up default mock transactions if they exist
+  await db('transactions').whereIn('id', ['tx1', 'tx2', 'tx3']).delete();
+  console.log('✔ Checked and pruned default mock transaction items from the database.');
 
   // Check beneficiaries count
   const benCount = await db('beneficiaries').count('id as val').first();

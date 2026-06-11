@@ -214,7 +214,7 @@ async function startServer() {
           email: String(email),
           phone: '08000000000',
           name: 'New User',
-          wallet_balance: 100.0,
+          wallet_balance: 0.0,
           referral_code: refCode,
           referred_count: 0,
           referral_earnings: 0.0,
@@ -291,7 +291,7 @@ async function startServer() {
           email: String(email).trim(),
           phone: String(phone).trim(),
           name: String(name).trim(),
-          wallet_balance: 100.0, // Welcome bonus matching client setting
+          wallet_balance: 0.0, // Welcome bonus matching client setting
           referral_code: refCode,
           referred_count: 0,
           referral_earnings: 0.0,
