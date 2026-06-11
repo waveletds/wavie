@@ -5,7 +5,8 @@ import './index.css';
 
 // Dynamic API fetch proxy routing for external hostnames (e.g. Vercel custom domains)
 const originalFetch = window.fetch;
-window.fetch = function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+
+function customFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   let urlString = '';
   if (typeof input === 'string') {
     urlString = input;
@@ -33,7 +34,23 @@ window.fetch = function (input: RequestInfo | URL, init?: RequestInit): Promise<
     const newRequest = new Request(urlString, input as Request);
     return originalFetch(newRequest, init);
   }
-};
+}
+
+try {
+  Object.defineProperty(window, 'fetch', {
+    value: customFetch,
+    configurable: true,
+    writable: true,
+    enumerable: true
+  });
+} catch (e) {
+  console.warn('Unable to override window.fetch with Object.defineProperty, trying globalThis fallback:', e);
+  try {
+    (globalThis as any).fetch = customFetch;
+  } catch (err) {
+    console.error('Failed all attempts to proxy window.fetch. External custom domains may require absolute path routing.', err);
+  }
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
