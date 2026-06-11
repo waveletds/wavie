@@ -1018,13 +1018,23 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
         </div>
       </form>
 
-      <div className="p-3.5 bg-teal-50/40 border border-teal-101 rounded-2xl flex flex-col gap-1.5 text-[10px] text-slate-500 leading-relaxed font-sans">
-        <span className="font-extrabold text-teal-800 uppercase tracking-widest text-[9px] block">Webhooks Delivery Url</span>
-        <div className="bg-white border border-slate-100 p-2.5 rounded-lg font-mono text-[9px] text-slate-600 select-all overflow-x-auto whitespace-nowrap border-dashed">
-          {window.location.origin}/api/paystack/webhook
+      <div className="p-3.5 bg-teal-50/40 border border-teal-101 rounded-2xl flex flex-col gap-3 text-[10px] text-slate-500 leading-relaxed font-sans">
+        <div>
+          <span className="font-extrabold text-teal-800 uppercase tracking-widest text-[9px] block mb-1">Active Integration Webhook URL</span>
+          <div className="bg-white border border-slate-100 p-2.5 rounded-lg font-mono text-[9px] text-slate-600 select-all overflow-x-auto whitespace-nowrap border-dashed">
+            https://wavie.vercel.app/api/paystack/webhook
+          </div>
         </div>
+
+        <div>
+          <span className="font-extrabold text-slate-500 uppercase tracking-widest text-[9px] block mb-1">Local Application Route Fallback</span>
+          <div className="bg-white border border-slate-100 p-2.5 rounded-lg font-mono text-[9px] text-slate-450 select-all overflow-x-auto whitespace-nowrap border-dashed border-slate-200">
+            {window.location.origin}/api/paystack/webhook
+          </div>
+        </div>
+
         <span>
-          <strong>Webhooks Notice:</strong> Copy this URL to your official Paystack Dashboard to continuously intercept real successful transaction webhooks automatically.
+          <strong>Webhooks Notice:</strong> Your registered production webhook <code>https://wavie.vercel.app/api/paystack/webhook</code> is fully integrated. Copy either of these URLs to your Paystack developer settings page to securely receive automated notifications.
         </span>
       </div>
     </div>

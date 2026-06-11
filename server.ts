@@ -1,5 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
+import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import { db, runMigrations } from './src/db/sqlite.ts';
 import { GoogleGenAI } from '@google/genai';
@@ -9,8 +10,20 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Middleware for body parsing
-  app.use(express.json());
+  // Enable CORS helper for custom frontend origins like Vercel
+  app.use(cors({
+    origin: true,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Paystack-Signature', 'X-Requested-With']
+  }));
+
+  // Middleware for body parsing with raw body support for signature verification
+  app.use(express.json({
+    verify: (req: any, res, buf) => {
+      req.rawBody = buf.toString();
+    }
+  }));
 
   // Database auto-migration execution on launch configuration
   try {
@@ -969,6 +982,78 @@ async function startServer() {
     }
   });
 
+  // Pre-registers a PENDING wallet funding transaction for tracking/webhooks validation
+  app.post('/api/wallet/fund/pending', async (req: Request, res: Response, next: NextFunction) => {
+    const { email, amount, paymentMethod, reference, description } = req.body;
+    
+    if (!email || !amount || amount <= 0 || !reference) {
+      return res.status(400).json({ error: 'Email, positive amount, and payment reference are required.' });
+    }
+
+    try {
+      let pendingTx: any = null;
+
+      await db.transaction(async (trx) => {
+        const user = await trx('users').where({ email }).first();
+        if (!user) {
+          throw new Error('USER_NOT_FOUND');
+        }
+
+        // Integrity check: reference uniqueness
+        const duplicateTx = await trx('transactions').where({ reference }).first();
+        if (duplicateTx) {
+          throw new Error('DUPLICATE_REFERENCE_DETECTED');
+        }
+
+        const newId = `tx_fund_${Date.now()}`;
+        const newTimestamp = new Date().toISOString();
+        const fullDesc = description || `Funded +₦${amount.toLocaleString()} (Pending)`;
+
+        // Insert pending transaction status
+        await trx('transactions').insert({
+          id: newId,
+          user_email: email,
+          type: 'funding',
+          amount: amount,
+          fee: 0,
+          status: 'pending',
+          timestamp: newTimestamp,
+          description: fullDesc,
+          recipient: 'Primary wallet',
+          reference: reference,
+          details: JSON.stringify({ gateway: paymentMethod || 'paystack_sim' })
+        });
+
+        pendingTx = {
+          id: newId,
+          type: 'funding',
+          amount: amount,
+          fee: 0,
+          status: 'pending',
+          timestamp: newTimestamp,
+          description: fullDesc,
+          recipient: 'Primary wallet',
+          reference: reference,
+          details: { gateway: paymentMethod || 'paystack_sim' }
+        };
+      });
+
+      res.json({
+        success: true,
+        transaction: pendingTx
+      });
+
+    } catch (err: any) {
+      if (err.message === 'USER_NOT_FOUND') {
+        return res.status(404).json({ error: 'User profile not found.' });
+      }
+      if (err.message === 'DUPLICATE_REFERENCE_DETECTED') {
+        return res.status(400).json({ error: 'This payment reference has already been initialized or processed.' });
+      }
+      next(err);
+    }
+  });
+
   // Real Wallet funding endpoint that performs atomic credits into the database 
   app.post('/api/wallet/fund', async (req: Request, res: Response, next: NextFunction) => {
     const { email, amount, paymentMethod, reference, description } = req.body;
@@ -1090,29 +1175,45 @@ async function startServer() {
               throw new Error('USER_NOT_FOUND');
             }
 
-            const duplicateTx = await trx('transactions').where({ reference }).first();
-            if (duplicateTx) {
-              throw new Error('DUPLICATE_REFERENCE_DETECTED');
+            const existingTx = await trx('transactions').where({ reference }).first();
+            if (existingTx) {
+              if (existingTx.status === 'success') {
+                throw new Error('DUPLICATE_REFERENCE_DETECTED');
+              }
+
+              // Update pending/failed transaction record to success
+              await trx('transactions').where({ reference }).update({
+                status: 'success',
+                amount: paystackAmountNGN,
+                description: `Funded +₦${paystackAmountNGN.toLocaleString()} securely via Paystack API Verification`,
+                details: JSON.stringify({ gateway: 'paystack_inline_verified', channel: pData.data.channel || 'card' })
+              });
+
+              // Credit user wallet
+              const currentBalance = userObj.wallet_balance;
+              await trx('users').where({ email: customerEmail }).update({ wallet_balance: currentBalance + paystackAmountNGN });
+              console.log(`[PAYSTACK_VERIFY] Transitioned pending transaction ${reference} to success. Wallet credited.`);
+            } else {
+              // Save verified payment entry in ledger history if non-existent
+              await trx('transactions').insert({
+                id: `tx_fund_${Date.now()}`,
+                user_email: customerEmail,
+                type: 'funding',
+                amount: paystackAmountNGN,
+                fee: 0,
+                status: 'success',
+                timestamp: new Date().toISOString(),
+                description: `Funded +₦${paystackAmountNGN.toLocaleString()} securely via Paystack API Verification`,
+                recipient: 'Primary wallet',
+                reference: reference,
+                details: JSON.stringify({ gateway: 'paystack_inline_verified', channel: pData.data.channel || 'card' })
+              });
+
+              // Adjust user wallets limits and amounts
+              const currentBalance = userObj.wallet_balance;
+              await trx('users').where({ email: customerEmail }).update({ wallet_balance: currentBalance + paystackAmountNGN });
+              console.log(`[PAYSTACK_VERIFY] Created new successful transaction for reference ${reference}. Wallet credited.`);
             }
-
-            // Save verified payment entry in ledger history
-            await trx('transactions').insert({
-              id: `tx_fund_${Date.now()}`,
-              user_email: customerEmail,
-              type: 'funding',
-              amount: paystackAmountNGN,
-              fee: 0,
-              status: 'success',
-              timestamp: new Date().toISOString(),
-              description: `Funded +₦${paystackAmountNGN.toLocaleString()} securely via Paystack API Verification`,
-              recipient: 'Primary wallet',
-              reference: reference,
-              details: JSON.stringify({ gateway: 'paystack_inline_verified', channel: pData.data.channel || 'card' })
-            });
-
-            // Adjust user wallets limits and amounts
-            const currentBalance = userObj.wallet_balance;
-            await trx('users').where({ email: customerEmail }).update({ wallet_balance: currentBalance + paystackAmountNGN });
           });
 
           const updatedUser = await db('users').where({ email: customerEmail }).first();
@@ -1145,27 +1246,42 @@ async function startServer() {
             throw new Error('USER_NOT_FOUND');
           }
 
-          const duplicateTx = await trx('transactions').where({ reference }).first();
-          if (duplicateTx) {
-            throw new Error('DUPLICATE_REFERENCE_DETECTED');
+          const existingTx = await trx('transactions').where({ reference }).first();
+          if (existingTx) {
+            if (existingTx.status === 'success') {
+              throw new Error('DUPLICATE_REFERENCE_DETECTED');
+            }
+
+            // Update pending/failed simulation record to success
+            await trx('transactions').where({ reference }).update({
+              status: 'success',
+              amount: fundAmount,
+              description: `Funded +₦${fundAmount.toLocaleString()} securely via verified sandbox channel`,
+              details: JSON.stringify({ gateway: 'paystack_inline_simulated' })
+            });
+
+            const currentBalance = userObj.wallet_balance;
+            await trx('users').where({ email }).update({ wallet_balance: currentBalance + fundAmount });
+            console.log(`[PAYSTACK_VERIFY] Transitioned simulated pending transaction ${reference} to success. Wallet credited.`);
+          } else {
+            await trx('transactions').insert({
+              id: `tx_fund_${Date.now()}`,
+              user_email: email,
+              type: 'funding',
+              amount: fundAmount,
+              fee: 0,
+              status: 'success',
+              timestamp: new Date().toISOString(),
+              description: `Funded +₦${fundAmount.toLocaleString()} securely via verified sandbox channel`,
+              recipient: 'Primary wallet',
+              reference: reference,
+              details: JSON.stringify({ gateway: 'paystack_inline_simulated' })
+            });
+
+            const currentBalance = userObj.wallet_balance;
+            await trx('users').where({ email }).update({ wallet_balance: currentBalance + fundAmount });
+            console.log(`[PAYSTACK_VERIFY] Created new simulated successful transaction for ${reference}. Wallet credited.`);
           }
-
-          await trx('transactions').insert({
-            id: `tx_fund_${Date.now()}`,
-            user_email: email,
-            type: 'funding',
-            amount: fundAmount,
-            fee: 0,
-            status: 'success',
-            timestamp: new Date().toISOString(),
-            description: `Funded +₦${fundAmount.toLocaleString()} securely via verified sandbox channel`,
-            recipient: 'Primary wallet',
-            reference: reference,
-            details: JSON.stringify({ gateway: 'paystack_inline_simulated' })
-          });
-
-          const currentBalance = userObj.wallet_balance;
-          await trx('users').where({ email }).update({ wallet_balance: currentBalance + fundAmount });
         });
 
         const updatedUser = await db('users').where({ email }).first();
@@ -1229,13 +1345,20 @@ async function startServer() {
       
       try {
         const crypto = await import('crypto');
-        const hash = crypto.createHmac('sha512', pSecret.trim())
-                           .update(JSON.stringify(req.body))
-                           .digest('hex');
+        const rawBodyText = (req as any).rawBody || JSON.stringify(req.body);
+        let hash = crypto.createHmac('sha512', pSecret.trim())
+                          .update(rawBodyText)
+                          .digest('hex');
 
         if (hash !== signature) {
-          console.error('[PAYSTACK_WEBHOOK] Signature mismatch exception check!');
-          return res.sendStatus(401);
+          console.warn('[PAYSTACK_WEBHOOK] Signature mismatch with rawBody. Trying JSON.stringify fallback...');
+          const fallbackHash = crypto.createHmac('sha512', pSecret.trim())
+                                     .update(JSON.stringify(req.body))
+                                     .digest('hex');
+          if (fallbackHash !== signature) {
+            console.error('[PAYSTACK_WEBHOOK] Signature verification failed! Mismatch detected against signature.');
+            return res.sendStatus(401);
+          }
         }
       } catch (crypErr: any) {
         console.error('[PAYSTACK_WEBHOOK] Hash signature checks aborted:', crypErr.message);
@@ -1243,18 +1366,37 @@ async function startServer() {
       }
     }
 
-    if (payload && payload.event === 'charge.success') {
+    if (payload && (payload.event === 'charge.success' || payload.event === 'charge.failed')) {
+      const isSuccess = payload.event === 'charge.success';
       const dataObj = payload.data;
       const reference = dataObj.reference;
       const amountNGN = dataObj.amount / 100;
       const userEmail = dataObj.customer?.email;
+
+      // Asynchronously forward the verified request to their main production webhook URL
+      const extWebhookUrl = 'https://wavie.vercel.app/api/paystack/webhook';
+      console.log(`[PAYSTACK_WEBHOOK] Forwarding event payload to custom external webhook: ${extWebhookUrl}`);
+      fetch(extWebhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Paystack-Signature': (signature as string) || '',
+        },
+        body: (req as any).rawBody || JSON.stringify(req.body)
+      })
+      .then((fRes) => {
+        console.log(`[PAYSTACK_WEBHOOK] Proxy to external webhook completed with status code: ${fRes.status}`);
+      })
+      .catch((fErr) => {
+        console.warn(`[PAYSTACK_WEBHOOK] Proxy routing failure to external webhook destination: ${fErr.message}`);
+      });
 
       if (!userEmail) {
         console.error('[PAYSTACK_WEBHOOK] Event is missing valid customer email address.');
         return res.status(400).json({ error: 'Customer email address is mandatory' });
       }
 
-      console.log(`[PAYSTACK_WEBHOOK] Successfully checked signature! Ref: ${reference}, Amount: ₦${amountNGN}, Recipient: ${userEmail}`);
+      console.log(`[PAYSTACK_WEBHOOK] Successfully checked signature! Event: ${payload.event}, Ref: ${reference}, Amount: ₦${amountNGN}, Recipient: ${userEmail}`);
 
       try {
         await db.transaction(async (trx) => {
@@ -1263,27 +1405,65 @@ async function startServer() {
             throw new Error('USER_NOT_FOUND');
           }
 
-          const duplicateTx = await trx('transactions').where({ reference }).first();
-          if (duplicateTx) {
-            throw new Error('DUPLICATE_REFERENCE_DETECTED');
+          const existingTx = await trx('transactions').where({ reference }).first();
+          if (existingTx) {
+            if (existingTx.status === 'success') {
+              throw new Error('DUPLICATE_REFERENCE_DETECTED');
+            }
+
+            // Update existing pending/failed transaction record
+            await trx('transactions').where({ reference }).update({
+              status: isSuccess ? 'success' : 'failed',
+              amount: amountNGN,
+              description: isSuccess 
+                ? `Funded +₦${amountNGN.toLocaleString()} securely via Paystack Webhook` 
+                : `Funding of ₦${amountNGN.toLocaleString()} failed via Paystack Webhook`,
+              details: JSON.stringify({ 
+                gateway: 'paystack_webhook', 
+                gateway_id: dataObj.id,
+                channel: dataObj.channel || 'unknown',
+                failure_reason: dataObj.gateway_response || 'unknown'
+              })
+            });
+
+            if (isSuccess) {
+              const currentBalance = userObj.wallet_balance;
+              await trx('users').where({ email: userEmail }).update({ wallet_balance: currentBalance + amountNGN });
+              console.log(`[PAYSTACK_WEBHOOK] Updated pending transaction ${reference} to success. Wallet credited.`);
+            } else {
+              console.log(`[PAYSTACK_WEBHOOK] Updated pending transaction ${reference} to failed.`);
+            }
+          } else {
+            // Log brand new transaction record
+            await trx('transactions').insert({
+              id: `tx_fund_${Date.now()}`,
+              user_email: userEmail,
+              type: 'funding',
+              amount: amountNGN,
+              fee: 0,
+              status: isSuccess ? 'success' : 'failed',
+              timestamp: new Date().toISOString(),
+              description: isSuccess 
+                ? `Funded +₦${amountNGN.toLocaleString()} securely via Paystack Webhook Event Notification` 
+                : `Funding of ₦${amountNGN.toLocaleString()} failed via Paystack Webhook`,
+              recipient: 'Primary wallet',
+              reference: reference,
+              details: JSON.stringify({ 
+                gateway: 'paystack_webhook', 
+                gateway_id: dataObj.id,
+                channel: dataObj.channel || 'unknown',
+                failure_reason: dataObj.gateway_response || 'unknown'
+              })
+            });
+
+            if (isSuccess) {
+              const currentBalance = userObj.wallet_balance;
+              await trx('users').where({ email: userEmail }).update({ wallet_balance: currentBalance + amountNGN });
+              console.log(`[PAYSTACK_WEBHOOK] Created new successful transaction for reference ${reference}. Wallet credited.`);
+            } else {
+              console.log(`[PAYSTACK_WEBHOOK] Created new failed transaction for reference ${reference}.`);
+            }
           }
-
-          await trx('transactions').insert({
-            id: `tx_fund_${Date.now()}`,
-            user_email: userEmail,
-            type: 'funding',
-            amount: amountNGN,
-            fee: 0,
-            status: 'success',
-            timestamp: new Date().toISOString(),
-            description: `Funded +₦${amountNGN.toLocaleString()} securely via Paystack Webhook Event Notification`,
-            recipient: 'Primary wallet',
-            reference: reference,
-            details: JSON.stringify({ gateway: 'paystack_webhook', gateway_id: dataObj.id })
-          });
-
-          const currentBalance = userObj.wallet_balance;
-          await trx('users').where({ email: userEmail }).update({ wallet_balance: currentBalance + amountNGN });
         });
 
         console.log(`[PAYSTACK_WEBHOOK] Successfully processed credit to ${userEmail} with amount ₦${amountNGN}`);

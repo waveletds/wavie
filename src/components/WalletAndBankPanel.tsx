@@ -27,6 +27,7 @@ interface WalletAndBankPanelProps {
   onFundWallet: (amount: number, description: string, paymentMethod?: string, reference?: string) => void;
   onWithdrawWallet: (amount: number, fee: number, description: string, details: any) => void;
   addToast: (msg: string, type: 'success' | 'error' | 'info' | 'warning') => void;
+  onRegisterPendingPayment?: (amount: number, description: string, paymentMethod: string, reference: string) => Promise<void>;
 }
 
 export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
@@ -34,6 +35,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
   onFundWallet,
   onWithdrawWallet,
   addToast,
+  onRegisterPendingPayment,
 }) => {
   const [activeTab, setActiveTab] = useState<'fund' | 'withdraw'>('fund');
   const [fundMethod, setFundMethod] = useState<'transfer' | 'card' | 'ussd'>('transfer');
@@ -167,12 +169,22 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
     // If script loaded successfully, try real checkout
     if (scriptLoaded && pKey) {
       try {
+        const generatedReference = `TN-PAY-${Date.now()}-${Math.floor(10000 + Math.random() * 90000)}`;
+        if (onRegisterPendingPayment) {
+          await onRegisterPendingPayment(
+            amt,
+            `Card funded +₦${amt.toLocaleString()} (Gateway: Paystack Inline)`,
+            'paystack',
+            generatedReference
+          );
+        }
+
         const handler = (window as any).PaystackPop.setup({
           key: pKey,
           email: user.email,
           amount: Math.round(amt * 100),
           currency: 'NGN',
-          ref: `TN-PAY-${Date.now()}-${Math.floor(10000 + Math.random() * 90000)}`,
+          ref: generatedReference,
           callback: (response: any) => {
             setIsProcessingCard(false);
             onFundWallet(
@@ -195,9 +207,19 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
     }
 
     // Elegant fallback / development sandbox simulation flow for iframe preview and demonstration states
-    setTimeout(() => {
+    setTimeout(async () => {
       setIsProcessingCard(false);
       const generatedRef = `TN-DEP-${Math.floor(10000000 + Math.random() * 89999999)}`;
+      
+      if (onRegisterPendingPayment) {
+        await onRegisterPendingPayment(
+          amt,
+          `Card funded +₦${amt.toLocaleString()} (Gateway: Paystack Card Switch)`,
+          'paystack_sim',
+          generatedRef
+        );
+      }
+
       setPaystackTxRef(generatedRef);
       setPaystackStep('processing');
       setIsPaystackOpen(true);

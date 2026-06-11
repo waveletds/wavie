@@ -806,6 +806,46 @@ export default function App() {
     }
   };
 
+  const handleRegisterPendingPayment = async (amount: number, description: string, paymentMethod: string, reference: string) => {
+    try {
+      const response = await fetch('/api/wallet/fund/pending', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user.email,
+          amount,
+          paymentMethod,
+          reference,
+          description
+        })
+      });
+      const data = await response.json();
+      if (data.success && data.transaction) {
+        const mappedTx: Transaction = {
+          id: data.transaction.id,
+          type: data.transaction.type as any,
+          amount: data.transaction.amount,
+          fee: data.transaction.fee,
+          status: data.transaction.status as any,
+          timestamp: data.transaction.timestamp,
+          description: data.transaction.description,
+          recipient: data.transaction.recipient,
+          reference: data.transaction.reference,
+          details: data.transaction.details
+        };
+        setTransactions((prev) => {
+          if (prev.some(t => t.reference === reference)) {
+            return prev.map(t => t.reference === reference ? { ...t, status: 'pending' as any } : t);
+          }
+          return [mappedTx, ...prev];
+        });
+        console.log('[App] Pre-registered pending payment securely inside ledger cache:', mappedTx);
+      }
+    } catch (err) {
+      console.warn('Could not handle dynamic pending registration checkout cache:', err);
+    }
+  };
+
   const handleWalletFunding = (amount: number, description: string, paymentMethod?: string, reference?: string) => {
     const generatedRef = reference || `TN-DEP-${Math.floor(10000000 + Math.random() * 89999999)}`;
 
@@ -1811,6 +1851,7 @@ export default function App() {
                     <WalletAndBankPanel
                       user={user}
                       onFundWallet={handleWalletFunding}
+                      onRegisterPendingPayment={handleRegisterPendingPayment}
                       onWithdrawWallet={(amt, fee, desc, details) => {
                         handleInterceptPurchase({
                           type: 'withdrawal',
