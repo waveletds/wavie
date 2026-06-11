@@ -272,15 +272,21 @@ async function seedDatabase() {
       user_email: defaultEmail,
       sagecloud_api_key: null,
       sagecloud_api_url: 'https://api.sagecloud.ng/v1',
-      paystack_public_key: 'pk_live_26c21769a652b4bfd26b4f02d485c915d21fe69e'
+      paystack_public_key: 'pk_live_26c21769a652b4bfd26b4f02d485c915d21fe69e',
+      strowallet_public_key: 'pub_2tGdv9VqcdW3rMD8TUjUNkUEIYoUIkj5FRk4TcXu',
+      strowallet_secret_key: 'sec_wQ3z3fvOWVGMW2U7ByZlrLatPGs7umseervrwLZB',
+      strowallet_api_url: 'https://api.strowallet.com/v1'
     });
-    console.log('✔ Seeded default API configs entry with live Paystack key.');
+    console.log('✔ Seeded default API configs entry with live Paystack & Strowallet keys.');
   } else {
-    // Ensure Paystack key is set to user's requested live production key
+    // Ensure Paystack and Strowallet keys are set to user's requested live production key
     await db('api_configs').where({ user_email: defaultEmail }).update({
-      paystack_public_key: 'pk_live_26c21769a652b4bfd26b4f02d485c915d21fe69e'
+      paystack_public_key: 'pk_live_26c21769a652b4bfd26b4f02d485c915d21fe69e',
+      strowallet_public_key: 'pub_2tGdv9VqcdW3rMD8TUjUNkUEIYoUIkj5FRk4TcXu',
+      strowallet_secret_key: 'sec_wQ3z3fvOWVGMW2U7ByZlrLatPGs7umseervrwLZB',
+      strowallet_api_url: 'https://api.strowallet.com/v1'
     });
-    console.log('✔ Updated API configs with requested live Paystack key.');
+    console.log('✔ Updated API configs with requested live Paystack & Strowallet keys.');
   }
 
   // Check transactions count

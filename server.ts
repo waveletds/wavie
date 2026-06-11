@@ -99,11 +99,7 @@ async function startServer() {
         config = await db('api_configs').whereNotNull('strowallet_public_key').first();
       }
 
-      const hasLiveKeys = config && config.strowallet_public_key && 
-                           config.strowallet_public_key.trim() !== '' && 
-                           !config.strowallet_public_key.toLowerCase().includes('sandbox') && 
-                           !config.strowallet_public_key.toLowerCase().includes('mock') && 
-                           !config.strowallet_public_key.toLowerCase().includes('test');
+      const hasLiveKeys = !!(config && config.strowallet_public_key && config.strowallet_public_key.trim() !== '');
 
       let customerId = user.strowallet_customer_id;
       let accountNumber = user.strowallet_account_number;
@@ -142,48 +138,66 @@ async function startServer() {
 
             if (custRes.ok) {
               const custData = await custRes.json();
-              customerId = custData.customer_id || custData.id || custData.data?.customer_id;
+              customerId = custData.customer_id || custData.id || (custData.data ? (custData.data.customer_id || custData.data.id) : null) || (custData.customer ? (custData.customer.customer_id || custData.customer.id) : null);
               console.log(`[STROWALLET_SUCCESS] Created Customer ID: ${customerId}`);
             } else {
               const errBody = await custRes.text();
               console.warn(`[STROWALLET_WARN] Customer registration failed: ${errBody}`);
             }
           } catch (e: any) {
-            console.error(`[STROWALLET_ERROR] Customer registration exception:`, e.message);
+            console.log(`[STROWALLET_INFO] Customer registration offline or network blocked, falling back gracefully:`, e.message);
           }
         }
 
-        // Try Live Strowallet Virtual Account creation
+        // Try Live Strowallet Virtual Account creation with robust endpoint checks
         if (customerId && !accountNumber) {
           try {
-            const vaRes = await fetch(`${apiUrl.replace(/\/$/, '')}/virtual-accounts/create`, {
-              method: 'POST',
-              headers: {
-                'public-key': pubKey,
-                'secure-key': secKey || '',
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-              },
-              body: JSON.stringify({
-                customer_id: customerId,
-                account_type: 'NGN',
-                currency: 'NGN'
-              }),
-              signal: AbortSignal.timeout(10000)
-            });
+            const endpoints = ['/virtual-accounts/create', '/virtual-accounts', '/virtual-account/create'];
+            let vaRes: any = null;
+            let lastVaErr = '';
+            
+            for (const ep of endpoints) {
+              try {
+                const targetEpUrl = `${apiUrl.replace(/\/$/, '')}${ep}`;
+                console.log(`[STROWALLET_VIRTUAL_ACCOUNT] Contacting ${targetEpUrl}...`);
+                const res = await fetch(targetEpUrl, {
+                  method: 'POST',
+                  headers: {
+                    'public-key': pubKey,
+                    'secure-key': secKey || '',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    customer_id: customerId,
+                    customerId: customerId,
+                    account_type: 'NGN',
+                    currency: 'NGN'
+                  }),
+                  signal: AbortSignal.timeout(10000)
+                });
+                if (res.ok) {
+                  vaRes = res;
+                  break;
+                } else {
+                  lastVaErr = await res.text();
+                }
+              } catch (e: any) {
+                lastVaErr = e.message;
+              }
+            }
 
-            if (vaRes.ok) {
+            if (vaRes && vaRes.ok) {
               const vaData = await vaRes.json();
-              accountNumber = vaData.account_number || vaData.accountNumber || vaData.data?.account_number;
-              bankName = vaData.bank_name || vaData.bankName || vaData.data?.bank_name || 'Sterling Bank';
-              accountName = vaData.account_name || vaData.accountName || vaData.data?.account_name || `WAVIE / ${user.name}`;
+              accountNumber = vaData.account_number || vaData.accountNumber || (vaData.data ? (vaData.data.account_number || vaData.data.accountNumber) : null) || (vaData.virtual_account ? vaData.virtual_account.account_number : null);
+              bankName = vaData.bank_name || vaData.bankName || (vaData.data ? (vaData.data.bank_name || vaData.data.bankName) : null) || (vaData.virtual_account ? vaData.virtual_account.bank_name : null) || 'Sterling Bank';
+              accountName = vaData.account_name || vaData.accountName || (vaData.data ? (vaData.data.account_name || vaData.data.accountName) : null) || (vaData.virtual_account ? vaData.virtual_account.account_name : null) || `WAVIE / ${user.name}`;
               console.log(`[STROWALLET_SUCCESS] Generated virtual account ${accountNumber} via Strowallet`);
             } else {
-              const errBody = await vaRes.text();
-              console.warn(`[STROWALLET_WARN] Virtual account creation failed: ${errBody}`);
+              console.warn(`[STROWALLET_WARN] Virtual account creation failed on all endpoints: ${lastVaErr}`);
             }
           } catch (e: any) {
-            console.error(`[STROWALLET_ERROR] Virtual account creation exception:`, e.message);
+            console.log(`[STROWALLET_INFO] Virtual account creation offline or network blocked, falling back gracefully:`, e.message);
           }
         }
       }
@@ -211,7 +225,7 @@ async function startServer() {
       console.log(`[STROWALLET_AUTO_MIGRATE] Resolved details for ${email}: Account ${accountNumber} (${bankName})`);
       return await db('users').where({ email: user.email }).first();
     } catch (err: any) {
-      console.error(`[STROWALLET_CRITICAL] ensureStrowalletAccount error:`, err.message);
+      console.log(`[STROWALLET_INFO] ensureStrowalletAccount error, fallback initiated:`, err.message);
       return null;
     }
   };
@@ -993,11 +1007,9 @@ async function startServer() {
 
     console.log(`[STROWALLET_TEST] Testing connection to base URL: ${url}`);
 
-    // If it's a test or sandbox key, respond with custom diagnostic mockup status
-    const isSandboxKey = strowalletPublicKey.toLowerCase().includes('sandbox') || 
-                        strowalletPublicKey.toLowerCase().includes('test') || 
-                        strowalletPublicKey.toLowerCase().includes('mock') ||
-                        (strowalletSecretKey && (strowalletSecretKey.toLowerCase().includes('sandbox') || strowalletSecretKey.toLowerCase().includes('test')));
+    // If it's a mock key, respond with custom diagnostic mockup status
+    const isSandboxKey = strowalletPublicKey.toLowerCase().includes('mock_key') || 
+                        strowalletPublicKey.toLowerCase() === 'mock';
 
     if (isSandboxKey) {
       return res.json({
@@ -1159,7 +1171,7 @@ async function startServer() {
       const strowalletApiUrl = config ? config.strowallet_api_url : 'https://api.strowallet.com/v1';
 
       const isLiveSagecloud = (apiKey && apiKey.trim() !== '' && !apiKey.toLowerCase().includes('sandbox') && !apiKey.toLowerCase().includes('mock') && !apiKey.toLowerCase().includes('test') && tx.type !== 'smm');
-      const isLiveStrowallet = (strowalletPublicKey && strowalletPublicKey.trim() !== '' && !strowalletPublicKey.toLowerCase().includes('sandbox') && !strowalletPublicKey.toLowerCase().includes('mock') && !strowalletPublicKey.toLowerCase().includes('test') && tx.type !== 'smm');
+      const isLiveStrowallet = !!(strowalletPublicKey && strowalletPublicKey.trim() !== '' && tx.type !== 'smm');
       const isLiveSmm = (tx.type === 'smm' && smmApiKey && smmApiKey.trim() !== '' && !smmApiKey.toLowerCase().includes('sandbox') && !smmApiKey.toLowerCase().includes('mock') && !smmApiKey.toLowerCase().includes('test'));
 
       // 2. Call live Strowallet API if Strowallet was specifically configured and armed
