@@ -503,7 +503,10 @@ async function startServer() {
           paystack_public_key: null,
           paystack_secret_key: null,
           smm_api_key: null,
-          smm_api_url: 'https://easy-smm-panel.com/api/v2'
+          smm_api_url: 'https://easy-smm-panel.com/api/v2',
+          strowallet_public_key: null,
+          strowallet_secret_key: null,
+          strowallet_api_url: 'https://api.strowallet.com/v1'
         });
         config = await db('api_configs').where({ user_email: String(email) }).first();
       }
@@ -515,7 +518,18 @@ async function startServer() {
 
   // Save configurations
   app.post('/api/user/vtu-config', async (req: Request, res: Response, next: NextFunction) => {
-    const { email, sagecloudApiKey, sagecloudApiUrl, paystackPublicKey, paystackSecretKey, smmApiKey, smmApiUrl } = req.body;
+    const { 
+      email, 
+      sagecloudApiKey, 
+      sagecloudApiUrl, 
+      paystackPublicKey, 
+      paystackSecretKey, 
+      smmApiKey, 
+      smmApiUrl,
+      strowalletPublicKey,
+      strowalletSecretKey,
+      strowalletApiUrl
+    } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Email parameter required' });
     }
@@ -530,7 +544,10 @@ async function startServer() {
           paystack_public_key: paystackPublicKey || null,
           paystack_secret_key: paystackSecretKey || null,
           smm_api_key: smmApiKey || null,
-          smm_api_url: smmApiUrl || 'https://easy-smm-panel.com/api/v2'
+          smm_api_url: smmApiUrl || 'https://easy-smm-panel.com/api/v2',
+          strowallet_public_key: strowalletPublicKey || null,
+          strowallet_secret_key: strowalletSecretKey || null,
+          strowallet_api_url: strowalletApiUrl || 'https://api.strowallet.com/v1'
         });
       } else {
         await db('api_configs').where({ user_email: email }).update({
@@ -539,7 +556,10 @@ async function startServer() {
           paystack_public_key: paystackPublicKey !== undefined ? paystackPublicKey : null,
           paystack_secret_key: paystackSecretKey !== undefined ? paystackSecretKey : null,
           smm_api_key: smmApiKey !== undefined ? smmApiKey : null,
-          smm_api_url: smmApiUrl !== undefined ? smmApiUrl : 'https://easy-smm-panel.com/api/v2'
+          smm_api_url: smmApiUrl !== undefined ? smmApiUrl : 'https://easy-smm-panel.com/api/v2',
+          strowallet_public_key: strowalletPublicKey !== undefined ? strowalletPublicKey : null,
+          strowallet_secret_key: strowalletSecretKey !== undefined ? strowalletSecretKey : null,
+          strowallet_api_url: strowalletApiUrl !== undefined ? strowalletApiUrl : 'https://api.strowallet.com/v1'
         });
       }
       const updatedConfig = await db('api_configs').where({ user_email: email }).first();

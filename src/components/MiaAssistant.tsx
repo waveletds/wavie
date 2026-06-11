@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { customFetch as fetch } from '../api';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   MessageSquare, X, Mic, Paperclip, Send, BrainCircuit, Sparkles, 

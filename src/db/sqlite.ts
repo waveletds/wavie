@@ -129,8 +129,11 @@ export async function runMigrations() {
       table.string('paystack_secret_key').nullable();
       table.string('smm_api_key').nullable();
       table.string('smm_api_url').defaultTo('https://easy-smm-panel.com/api/v2').nullable();
+      table.string('strowallet_public_key').nullable();
+      table.string('strowallet_secret_key').nullable();
+      table.string('strowallet_api_url').defaultTo('https://api.strowallet.com/v1').nullable();
     });
-    console.log('✔ Migrated "api_configs" table with Paystack & SMM support.');
+    console.log('✔ Migrated "api_configs" table with Paystack, SMM & Strowallet support.');
   } else {
     // Add additional fields dynamically to handle runtime updates
     const hasPubKey = await db.schema.hasColumn('api_configs', 'paystack_public_key');
@@ -148,6 +151,15 @@ export async function runMigrations() {
         table.string('smm_api_url').defaultTo('https://easy-smm-panel.com/api/v2').nullable();
       });
       console.log('✔ Patched "api_configs" table with smm_api_key & smm_api_url.');
+    }
+    const hasStrowalletFields = await db.schema.hasColumn('api_configs', 'strowallet_public_key');
+    if (!hasStrowalletFields) {
+      await db.schema.table('api_configs', (table) => {
+        table.string('strowallet_public_key').nullable();
+        table.string('strowallet_secret_key').nullable();
+        table.string('strowallet_api_url').defaultTo('https://api.strowallet.com/v1').nullable();
+      });
+      console.log('✔ Patched "api_configs" table with strowallet_public_key, strowallet_secret_key & strowallet_api_url.');
     }
   }
 
