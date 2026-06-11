@@ -80,6 +80,57 @@ async function startServer() {
     };
   };
 
+  // Robust fetch helper for Strowallet REST API that dynamically resolves DNS/routing fallback issues
+  const robustFetchStrowallet = async (
+    configuredUrl: string,
+    path: string,
+    options: RequestInit
+  ): Promise<any> => {
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    const cleanConfiguredUrl = String(configuredUrl || 'https://api.strowallet.com/v1').replace(/\/$/, '');
+    
+    // Create a list of fallback base URLs to try
+    const urlsToTry: string[] = [];
+    
+    // 1. Try precisely what was configured
+    urlsToTry.push(`${cleanConfiguredUrl}${cleanPath}`);
+    
+    // 2. If it's the standard api.strowallet.com subdomain, add strowallet.com fallback paths
+    if (cleanConfiguredUrl.includes('api.strowallet.com')) {
+      urlsToTry.push(`${cleanConfiguredUrl.replace('api.strowallet.com', 'strowallet.com/api')}${cleanPath}`);
+      urlsToTry.push(`${cleanConfiguredUrl.replace('api.strowallet.com', 'strowallet.com')}${cleanPath}`);
+    } 
+    // 3. If it's strowallet.com, try strowallet.com/api or adding api subdomain
+    else if (cleanConfiguredUrl.includes('strowallet.com')) {
+      if (!cleanConfiguredUrl.includes('/api')) {
+        urlsToTry.push(`${cleanConfiguredUrl}/api${cleanPath}`);
+      }
+      urlsToTry.push(`${cleanConfiguredUrl.replace('strowallet.com', 'api.strowallet.com')}${cleanPath}`);
+    }
+    
+    // Also try HTTPS / HTTP variants if necessary, but keep SSL
+    const uniqueUrls = Array.from(new Set(urlsToTry));
+    let lastError: any = null;
+    
+    for (const targetUrl of uniqueUrls) {
+      try {
+        console.log(`[STROWALLET_ROBUST_FETCH] Contacting target URL: ${targetUrl}`);
+        const response = await fetch(targetUrl, options);
+        // If we get an acceptable response (status < 500 or not 404/502/503/504), return it immediately
+        if (response.ok || (response.status !== 404 && response.status < 500)) {
+          return response;
+        }
+        const errText = await response.text().catch(() => 'unknown error');
+        lastError = new Error(`HTTP ${response.status}: ${errText}`);
+      } catch (err: any) {
+        console.warn(`[STROWALLET_ROBUST_FETCH] Error contacting ${targetUrl}:`, err.message);
+        lastError = err;
+      }
+    }
+    
+    throw lastError || new Error('All candidate Strowallet URL targets failed.');
+  };
+
   // Global helper to automatically ensure or migrate a user with a Strowallet customer & virtual bank account
   const ensureStrowalletAccount = async (email: string) => {
     try {
@@ -118,31 +169,54 @@ async function startServer() {
             const firstName = nameParts[0] || 'Wavie';
             const lastName = nameParts[1] || 'User';
 
-            const custRes = await fetch(`${apiUrl.replace(/\/$/, '')}/customers`, {
-              method: 'POST',
-              headers: {
-                'public-key': pubKey,
-                'secure-key': secKey || '',
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-              },
-              body: JSON.stringify({
-                firstName: firstName,
-                lastName: lastName,
-                email: user.email,
-                phoneNumber: user.phone || '08000000000',
-                phone_number: user.phone || '08000000000'
-              }),
-              signal: AbortSignal.timeout(10000)
-            });
+            // Try multiple candidate registration endpoints and parameters to fit all doc versions
+            const customerEndpoints = ['/customers', '/customer', '/customer/register'];
+            let custRes: any = null;
+            let lastCustErr = '';
 
-            if (custRes.ok) {
+            for (const ep of customerEndpoints) {
+              try {
+                console.log(`[STROWALLET_CUSTOMER] Contacting customer registration endpoint ${ep}...`);
+                const res = await robustFetchStrowallet(apiUrl, ep, {
+                  method: 'POST',
+                  headers: {
+                    'public-key': pubKey,
+                    'secure-key': secKey || '',
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    firstName: firstName,
+                    lastName: lastName,
+                    first_name: firstName,
+                    last_name: lastName,
+                    email: user.email,
+                    phoneNumber: user.phone || '08000000000',
+                    phone_number: user.phone || '08000000000',
+                    phone: user.phone || '08000000000'
+                  }),
+                  signal: AbortSignal.timeout(10000)
+                });
+
+                if (res.ok) {
+                  custRes = res;
+                  break;
+                } else {
+                  lastCustErr = await res.text();
+                }
+              } catch (e: any) {
+                lastCustErr = e.message;
+              }
+            }
+
+            if (custRes && custRes.ok) {
               const custData = await custRes.json();
-              customerId = custData.customer_id || custData.id || (custData.data ? (custData.data.customer_id || custData.data.id) : null) || (custData.customer ? (custData.customer.customer_id || custData.customer.id) : null);
+              customerId = custData.customer_id || custData.id || custData.customer_key || 
+                           (custData.data ? (custData.data.customer_id || custData.data.id || custData.data.customer_key) : null) || 
+                           (custData.customer ? (custData.customer.customer_id || custData.customer.id || custData.customer.customer_key) : null);
               console.log(`[STROWALLET_SUCCESS] Created Customer ID: ${customerId}`);
             } else {
-              const errBody = await custRes.text();
-              console.warn(`[STROWALLET_WARN] Customer registration failed: ${errBody}`);
+              console.warn(`[STROWALLET_WARN] Customer registration failed on all endpoints: ${lastCustErr}`);
             }
           } catch (e: any) {
             console.log(`[STROWALLET_INFO] Customer registration offline or network blocked, falling back gracefully:`, e.message);
@@ -152,15 +226,20 @@ async function startServer() {
         // Try Live Strowallet Virtual Account creation with robust endpoint checks
         if (customerId && !accountNumber) {
           try {
-            const endpoints = ['/virtual-accounts/create', '/virtual-accounts', '/virtual-account/create'];
+            const endpoints = [
+              '/virtual-accounts/create', 
+              '/virtual-accounts', 
+              '/virtual-account/create',
+              '/virtual-account',
+              '/virtual-accounts/register'
+            ];
             let vaRes: any = null;
             let lastVaErr = '';
             
             for (const ep of endpoints) {
               try {
-                const targetEpUrl = `${apiUrl.replace(/\/$/, '')}${ep}`;
-                console.log(`[STROWALLET_VIRTUAL_ACCOUNT] Contacting ${targetEpUrl}...`);
-                const res = await fetch(targetEpUrl, {
+                console.log(`[STROWALLET_VIRTUAL_ACCOUNT] Contacting endpoint ${ep}...`);
+                const res = await robustFetchStrowallet(apiUrl, ep, {
                   method: 'POST',
                   headers: {
                     'public-key': pubKey,
@@ -171,7 +250,10 @@ async function startServer() {
                   body: JSON.stringify({
                     customer_id: customerId,
                     customerId: customerId,
+                    customer_key: customerId,
+                    customerKey: customerId,
                     account_type: 'NGN',
+                    accountType: 'NGN',
                     currency: 'NGN'
                   }),
                   signal: AbortSignal.timeout(10000)
@@ -1029,10 +1111,9 @@ async function startServer() {
 
       for (const endpoint of endpointsToTry) {
         try {
-          const testUrl = `${url.replace(/\/$/, '')}${endpoint}`;
-          console.log(`[STROWALLET_TEST] Trying endpoint: ${testUrl}`);
+          console.log(`[STROWALLET_TEST] Trying endpoint: ${endpoint}`);
           
-          const response = await fetch(testUrl, {
+          const response = await robustFetchStrowallet(url, endpoint, {
             method: 'GET',
             headers: {
               'public-key': strowalletPublicKey,
@@ -1171,7 +1252,9 @@ async function startServer() {
       const strowalletApiUrl = config ? config.strowallet_api_url : 'https://api.strowallet.com/v1';
 
       const isLiveSagecloud = (apiKey && apiKey.trim() !== '' && !apiKey.toLowerCase().includes('sandbox') && !apiKey.toLowerCase().includes('mock') && !apiKey.toLowerCase().includes('test') && tx.type !== 'smm');
-      const isLiveStrowallet = !!(strowalletPublicKey && strowalletPublicKey.trim() !== '' && tx.type !== 'smm');
+      // Strowallet is a Virtual Account and Card platform, not a VTU (Airtime, Data, Bills) vendor.
+      // Therefore, standard VTU purchase transactions must go via Sagecloud or sandboxed simulations.
+      const isLiveStrowallet = false;
       const isLiveSmm = (tx.type === 'smm' && smmApiKey && smmApiKey.trim() !== '' && !smmApiKey.toLowerCase().includes('sandbox') && !smmApiKey.toLowerCase().includes('mock') && !smmApiKey.toLowerCase().includes('test'));
 
       // 2. Call live Strowallet API if Strowallet was specifically configured and armed
@@ -1234,10 +1317,9 @@ async function startServer() {
         }
 
         try {
-          const targetUrl = `${strowalletApiUrl.replace(/\/$/, '')}${pathStr}`;
-          console.log(`[STROWALLET_REQUEST] Calling ${targetUrl} with reference ${tx.reference}`);
+          console.log(`[STROWALLET_REQUEST] Calling path ${pathStr} with reference ${tx.reference}`);
           
-          const gatewayResponse = await fetch(targetUrl, {
+          const gatewayResponse = await robustFetchStrowallet(strowalletApiUrl, pathStr, {
             method: 'POST',
             headers: {
               'public-key': strowalletPublicKey!,
