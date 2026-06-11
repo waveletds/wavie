@@ -23,6 +23,7 @@ import { TransactionsList } from './components/TransactionsList';
 import { SettingsConfig } from './components/SettingsConfig';
 import { AdminTerminal } from './components/AdminTerminal';
 import { SuperAdminConsole } from './components/SuperAdminConsole';
+import { AdminMainframeShell } from './components/AdminMainframeShell';
 import { motion, AnimatePresence } from 'motion/react';
 import { MiaAssistant } from './components/MiaAssistant';
 import { PaymentLoadingState, PaymentStatus } from './components/PaymentLoadingState';
@@ -1608,6 +1609,25 @@ export default function App() {
             </div>
           </div>
         </div>
+      ) : (activeTab === 'admin_dashboard' || activeTab === 'super_admin_dashboard') ? (
+        <AdminMainframeShell
+          currentUser={user}
+          addToast={addToast}
+          onRefreshUserData={() => {
+            fetch('/api/auth/lookup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ identifier: user.email })
+            })
+            .then(res => res.json())
+            .then(data => {
+              if (data.success && data.exists && data.user) {
+                setUser(prev => ({ ...prev, ...data.user }));
+              }
+            });
+          }}
+          onExitAdmin={() => setActiveTab('dashboard')}
+        />
       ) : (
         /* ================= AUTHENTICATED PORTAL FRAME ================= */
         <div className="flex-grow flex flex-col md:flex-row">
