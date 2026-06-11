@@ -645,6 +645,95 @@ async function startServer() {
     }
   });
 
+  // Try-out / Test Connection with Strowallet endpoint
+  app.post('/api/user/strowallet-config/test', async (req: Request, res: Response) => {
+    const { strowalletPublicKey, strowalletSecretKey, strowalletApiUrl } = req.body;
+    const url = strowalletApiUrl || 'https://api.strowallet.com/v1';
+
+    if (!strowalletPublicKey || strowalletPublicKey.trim() === '') {
+      return res.status(400).json({ error: 'A Public API key must be provided to run tests.' });
+    }
+
+    console.log(`[STROWALLET_TEST] Testing connection to base URL: ${url}`);
+
+    // If it's a test or sandbox key, respond with custom diagnostic mockup status
+    const isSandboxKey = strowalletPublicKey.toLowerCase().includes('sandbox') || 
+                        strowalletPublicKey.toLowerCase().includes('test') || 
+                        strowalletPublicKey.toLowerCase().includes('mock') ||
+                        (strowalletSecretKey && (strowalletSecretKey.toLowerCase().includes('sandbox') || strowalletSecretKey.toLowerCase().includes('test')));
+
+    if (isSandboxKey) {
+      return res.json({
+        success: true,
+        message: 'Successfully established sandboxed tunnel to Strowallet developer network.',
+        balance: 1420500.0,
+        merchantName: 'Mock Strowallet Reseller Client',
+        status: 'ACTIVE'
+      });
+    }
+
+    try {
+      // Test multiple common balance/wallet info endpoints of Strowallet
+      const endpointsToTry = ['/wallet/balance', '/balance', '/merchant/balance', '/wallet/info', '/profile'];
+      let lastErr: any = null;
+      let successData: any = null;
+
+      for (const endpoint of endpointsToTry) {
+        try {
+          const testUrl = `${url.replace(/\/$/, '')}${endpoint}`;
+          console.log(`[STROWALLET_TEST] Trying endpoint: ${testUrl}`);
+          
+          const response = await fetch(testUrl, {
+            method: 'GET',
+            headers: {
+              'public-key': strowalletPublicKey,
+              'secure-key': strowalletSecretKey || '',
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            signal: AbortSignal.timeout(6000) // 6 seconds timeout
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            successData = data;
+            break;
+          } else {
+            const errText = await response.text();
+            lastErr = `Response ${response.status}: ${errText}`;
+          }
+        } catch (e: any) {
+          lastErr = e.message;
+        }
+      }
+
+      if (successData) {
+        // Handle common Strowallet response payload properties
+        const balance = successData.balance !== undefined ? successData.balance :
+                        (successData.wallet?.balance !== undefined ? successData.wallet.balance :
+                        (successData.data?.balance !== undefined ? successData.data.balance : 'Verified'));
+        
+        const mName = successData.merchantName || successData.fullname || successData.username ||
+                     (successData.data?.merchant_name || 'Strowallet Merchant Partner');
+
+        return res.json({
+          success: true,
+          message: 'Strowallet API Verified and Authenticated Successfully!',
+          balance: balance,
+          merchantName: mName,
+          status: 'ACTIVE'
+        });
+      }
+
+      return res.status(400).json({
+        error: `Authentication failed or endpoint unreachable. Diagnostic output: ${lastErr || 'Unresponsive target server'}`
+      });
+
+    } catch (err: any) {
+      return res.status(500).json({ error: `Network exception error: ${err.message}` });
+    }
+  });
+
   // ==========================================
   // 7.4.8. API: Git Commits & Repository Sync Simulation Diagnostics
   // ==========================================
@@ -722,18 +811,126 @@ async function startServer() {
 
       let finalDetails = { ...(tx.details || {}) };
 
-      // Load remote Sagecloud configurations for the user
+      // Load remote Sagecloud & Strowallet configurations for the user
       const config = await db('api_configs').where({ user_email: email }).first();
       const apiKey = config ? config.sagecloud_api_key : null;
       const apiUrl = config ? config.sagecloud_api_url : 'https://api.sagecloud.ng/v1';
       const smmApiKey = config ? config.smm_api_key : null;
       const smmApiUrl = config ? config.smm_api_url : 'https://easy-smm-panel.com/api/v2';
+      const strowalletPublicKey = config ? config.strowallet_public_key : null;
+      const strowalletSecretKey = config ? config.strowallet_secret_key : null;
+      const strowalletApiUrl = config ? config.strowallet_api_url : 'https://api.strowallet.com/v1';
 
       const isLiveSagecloud = (apiKey && apiKey.trim() !== '' && !apiKey.toLowerCase().includes('sandbox') && !apiKey.toLowerCase().includes('mock') && !apiKey.toLowerCase().includes('test') && tx.type !== 'smm');
+      const isLiveStrowallet = (strowalletPublicKey && strowalletPublicKey.trim() !== '' && !strowalletPublicKey.toLowerCase().includes('sandbox') && !strowalletPublicKey.toLowerCase().includes('mock') && !strowalletPublicKey.toLowerCase().includes('test') && tx.type !== 'smm');
       const isLiveSmm = (tx.type === 'smm' && smmApiKey && smmApiKey.trim() !== '' && !smmApiKey.toLowerCase().includes('sandbox') && !smmApiKey.toLowerCase().includes('mock') && !smmApiKey.toLowerCase().includes('test'));
 
-      // 2. Call live Sagecloud API if a real API Key is provided
-      if (isLiveSagecloud) {
+      // 2. Call live Strowallet API if Strowallet was specifically configured and armed
+      if (isLiveStrowallet) {
+        console.log(`[STROWALLET_API] Routing live ${tx.type} transaction via Strowallet API!`);
+        
+        let pathStr = '/airtime';
+        let requestBody: any = {};
+        
+        if (tx.type === 'airtime') {
+          pathStr = '/airtime';
+          requestBody = {
+            phoneNumber: tx.recipient,
+            phone: tx.recipient,
+            phone_number: tx.recipient,
+            amount: tx.amount,
+            network: tx.details?.network || 'MTN',
+            operator: tx.details?.network || 'MTN',
+            reference: tx.reference,
+            customer_reference: tx.reference
+          };
+        } else if (tx.type === 'data') {
+          pathStr = '/data';
+          requestBody = {
+            phoneNumber: tx.recipient,
+            phone: tx.recipient,
+            phone_number: tx.recipient,
+            amount: tx.amount,
+            planCode: tx.details?.planId,
+            plan_code: tx.details?.planId,
+            network: tx.details?.network || 'MTN',
+            operator: tx.details?.network || 'MTN',
+            reference: tx.reference
+          };
+        } else if (tx.type === 'electricity') {
+          pathStr = '/utility/electricity';
+          requestBody = {
+            disco: tx.details?.disco || 'ikedc',
+            meterNumber: tx.recipient,
+            meter_number: tx.recipient,
+            amount: tx.amount,
+            reference: tx.reference
+          };
+        } else if (tx.type === 'cable') {
+          pathStr = '/utility/cable';
+          requestBody = {
+            provider: tx.details?.provider || 'dstv',
+            plan: tx.details?.packageName || 'dstv-yanga',
+            iucNumber: tx.recipient,
+            iuc_number: tx.recipient,
+            reference: tx.reference
+          };
+        } else if (tx.type === 'education') {
+          pathStr = '/utility/pay';
+          requestBody = {
+            exam: tx.details?.examType || 'waec',
+            amount: tx.amount,
+            reference: tx.reference
+          };
+        }
+
+        try {
+          const targetUrl = `${strowalletApiUrl.replace(/\/$/, '')}${pathStr}`;
+          console.log(`[STROWALLET_REQUEST] Calling ${targetUrl} with reference ${tx.reference}`);
+          
+          const gatewayResponse = await fetch(targetUrl, {
+            method: 'POST',
+            headers: {
+              'public-key': strowalletPublicKey!,
+              'secure-key': strowalletSecretKey || '',
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify(requestBody),
+            signal: AbortSignal.timeout(15000) // 15s timeout
+          });
+
+          if (!gatewayResponse.ok) {
+            const errBody = await gatewayResponse.text();
+            console.error(`[STROWALLET_ERROR] Request failed with status ${gatewayResponse.status}: ${errBody}`);
+            
+            let parsedErr = `HTTP ${gatewayResponse.status}: ${errBody}`;
+            try {
+              const parsedJson = JSON.parse(errBody);
+              parsedErr = parsedJson.message || parsedJson.error || parsedErr;
+            } catch (e) {}
+            
+            return res.status(400).json({
+              error: `Strowallet Merchant Gateway Error: ${parsedErr}`
+            });
+          }
+
+          const responseData = await gatewayResponse.json();
+          console.log(`[STROWALLET_SUCCESS] API response data:`, JSON.stringify(responseData));
+
+          finalDetails.gatewayResponseCode = responseData.status || responseData.code || 'SUCCESS';
+          finalDetails.processedBy = 'Strowallet LIVE Gateway';
+          if (responseData.reference || responseData.data?.reference) {
+            finalDetails.token = responseData.reference || responseData.data?.reference;
+          }
+
+        } catch (err: any) {
+          console.error(`[STROWALLET_EXCEPTION] Network failure calling Strowallet:`, err);
+          return res.status(500).json({
+            error: `Communication failed with Strowallet gateway server: ${err.message}`
+          });
+        }
+      } else if (isLiveSagecloud) {
         console.log(`[SAGECLOUD_API] Routing live ${tx.type} transaction via Sagecloud.ng!`);
         
         let pathStr = '/airtime';

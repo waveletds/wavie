@@ -304,6 +304,53 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
     }
   };
 
+  const handleTestStrowalletConnection = async () => {
+    if (!strowalletPublicKey || strowalletPublicKey.trim() === '') {
+      addToast('Please input a Public API Key before running diagnostics.', 'warning');
+      return;
+    }
+    setIsTestingApi(true);
+    setApiTestResult(null);
+    try {
+      const response = await fetch('/api/user/strowallet-config/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          strowalletPublicKey: strowalletPublicKey,
+          strowalletSecretKey: strowalletSecretKey,
+          strowalletApiUrl: strowalletApiUrl,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setApiTestResult({
+          success: true,
+          message: data.message,
+          balance: data.balance,
+          merchantName: data.merchantName,
+        });
+        addToast('Strowallet API link verified successfully!', 'success');
+      } else {
+        setApiTestResult({
+          success: false,
+          message: data.error || 'Gateway test failed.',
+        });
+        addToast('Strowallet connection diagnostics failed.', 'error');
+      }
+    } catch (e: any) {
+      setApiTestResult({
+        success: false,
+        message: `Network Exception Error: ${e.message}`,
+      });
+      addToast('Network error during connection test.', 'error');
+    } finally {
+      setIsTestingApi(false);
+    }
+  };
+
   // Profile settings
   const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [profileName, setProfileName] = useState<string>(user.name);
@@ -1239,7 +1286,7 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 pt-1">
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           <button
             id="save-strowallet-keys-btn"
             type="submit"
@@ -1252,6 +1299,21 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
                 Saving Provider Settings...
               </>
             ) : 'Save Strowallet Configurations'}
+          </button>
+
+          <button
+            id="test-strowallet-connection-btn"
+            type="button"
+            onClick={handleTestStrowalletConnection}
+            disabled={isTestingApi}
+            className="px-5 py-2.5 bg-indigo-50 border border-indigo-100 text-indigo-700 hover:bg-indigo-105 text-xs font-bold font-display rounded-xl flex items-center gap-2 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+          >
+            {isTestingApi ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Testing link...
+              </>
+            ) : 'Test Connection'}
           </button>
         </div>
       </form>
