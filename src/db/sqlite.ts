@@ -76,6 +76,16 @@ export async function runMigrations() {
       });
       console.log('✔ Added password column to existing "users" table.');
     }
+    const hasStrowalletCustomerId = await db.schema.hasColumn('users', 'strowallet_customer_id');
+    if (!hasStrowalletCustomerId) {
+      await db.schema.alterTable('users', (table) => {
+        table.string('strowallet_customer_id').nullable();
+        table.string('strowallet_account_number').nullable();
+        table.string('strowallet_bank_name').nullable();
+        table.string('strowallet_account_name').nullable();
+      });
+      console.log('✔ Added Strowallet columns to existing "users" table.');
+    }
   }
 
   // 2. Transactions table with UNIQUE reference & foreign_keys

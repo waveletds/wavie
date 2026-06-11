@@ -66,6 +66,10 @@ export interface UserState {
   isWebAuthnEnabled?: boolean;
   webAuthnCredentialId?: string;
   role?: 'user' | 'admin' | 'super_admin';
+  strowalletCustomerId?: string | null;
+  strowalletAccountNumber?: string | null;
+  strowalletBankName?: string | null;
+  strowalletAccountName?: string | null;
 }
 
 export interface DataPlan {

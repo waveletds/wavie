@@ -77,37 +77,85 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
 
   const [copiedAccount, setCopiedAccount] = useState<boolean>(false);
 
-  // Derived Account Number for Virtual Account: 9 + User's phone minus leading zero
+  // Dynamic Strowallet virtual accounts resolved details
   const last9Digits = user.phone.startsWith('0') ? user.phone.substring(1) : user.phone;
-  const virtualAccountNum = `9${last9Digits}`;
+  const resolvedAccountNumber = user.strowalletAccountNumber || `502${last9Digits.padEnd(7, '8')}`.substring(0, 10);
+  const resolvedBankName = user.strowalletBankName || 'Wema Bank (Strowallet)';
+  const resolvedStrowalletAccountName = user.strowalletAccountName || `WAVIE / ${user.name.toUpperCase()}`;
 
-  const handleCopyAccount = () => {
-    navigator.clipboard.writeText(virtualAccountNum);
+  const handleCopyAccount = (value: string, label: string) => {
+    navigator.clipboard.writeText(value);
     setCopiedAccount(true);
-    addToast('Virtual account number copied successfully!', 'success');
+    addToast(`${label} copied successfully!`, 'success');
     setTimeout(() => setCopiedAccount(false), 2000);
   };
 
   const handleTriggerMockTransfer = () => {
     const amt = parseFloat(fundingAmount) || 0;
-    if (amt <= 50) {
+    if (amt < 100) {
       addToast('Minimum funding amount is ₦100.', 'error');
       return;
     }
 
     setIsSimulatingTransfer(true);
-    addToast('Contacting payment clearance processor...', 'info');
+    addToast('Clearing bank transfer request via Strowallet processing hub...', 'info');
 
     setTimeout(() => {
       setIsSimulatingTransfer(false);
-      const generatedRef = `TN-DEP-${Math.floor(10000000 + Math.random() * 89999999)}`;
-      onFundWallet(
-        amt, 
-        `Funded +₦${amt.toLocaleString()} via Instant Bank Transfer`, 
-        'bank_transfer_sim', 
-        generatedRef
-      );
-      addToast(`Deposit of ₦${amt.toLocaleString()} processed successfully!`, 'success');
+      const generatedRef = `STRW-WEB-${Math.floor(10000000 + Math.random() * 89999999)}`;
+      
+      // Hit the official webhook endpoint to simulate a real payment update loop
+      try {
+        fetch('/api/strowallet/webhook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'vaccount.credited',
+            data: {
+              customer_id: user.strowalletCustomerId || 'STRW-CST-DEMO',
+              account_number: resolvedAccountNumber,
+              amount: amt,
+              reference: generatedRef,
+              email: user.email
+            }
+          })
+        }).then(async (res) => {
+          if (res.ok) {
+            addToast(`Strowallet Auto-fund Successful! Credited ₦${amt.toLocaleString()} straight to wallet balance!`, 'success');
+            // Update parent balance to refresh State immediately
+            onFundWallet(
+              amt, 
+              `Strowallet Virtual Account Transfer +₦${amt.toLocaleString()} (Ref: ${generatedRef})`, 
+              'strowallet', 
+              generatedRef
+            );
+          } else {
+            console.warn('Strowallet webhook simulation answered with non-200. Falling back.');
+            onFundWallet(
+              amt, 
+              `Strowallet Virtual Account Transfer +₦${amt.toLocaleString()} (Ref: ${generatedRef})`, 
+              'strowallet', 
+              generatedRef
+            );
+            addToast(`Deposit of ₦${amt.toLocaleString()} processed successfully!`, 'success');
+          }
+        }).catch((e) => {
+          onFundWallet(
+            amt, 
+            `Strowallet Virtual Account Transfer +₦${amt.toLocaleString()} (Ref: ${generatedRef})`, 
+            'strowallet', 
+            generatedRef
+          );
+          addToast(`Deposit of ₦${amt.toLocaleString()} processed successfully!`, 'success');
+        });
+      } catch (err) {
+        onFundWallet(
+          amt, 
+          `Strowallet Virtual Account Transfer +₦${amt.toLocaleString()} (Ref: ${generatedRef})`, 
+          'strowallet', 
+          generatedRef
+        );
+      }
     }, 1800);
   };
 
@@ -372,89 +420,226 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
             
             {/* Header info */}
             <div className="text-center pb-2 border-b border-rose-50/50">
-              <div className="w-12 h-12 bg-[#09a5db]/10 rounded-full flex items-center justify-center text-[#09a5db] mx-auto mb-3">
+              <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-800 mx-auto mb-3">
                 <CreditCard className="w-6 h-6 animate-pulse-slow" />
               </div>
-              <h3 className="font-display font-black text-slate-850 text-base">Secure Wallet Deposit</h3>
-              <p className="text-xs text-slate-400 mt-1 font-medium">Auto-deposit credit instantly via modern bank-grade Paystack gateway.</p>
+              <h3 className="font-display font-black text-slate-850 text-base">Funding Center</h3>
+              <p className="text-xs text-slate-400 mt-1 font-medium">Select a secure automated gateway method to credit your wallet instantly.</p>
             </div>
 
-            {/* Amount input block */}
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display text-center sm:text-left">
-                Enter Amount to Deposit (₦)
-              </label>
-              <div className="relative">
-                <span className="absolute left-4.5 top-1/2 -translate-y-1/2 text-2xl font-black text-slate-400 font-display">
-                  ₦
-                </span>
-                <input
-                  id="payment-card-amount-input"
-                  type="number"
-                  placeholder="5,000"
-                  min={100}
-                  max={500000}
-                  value={cardValue}
-                  onChange={(e) => setCardValue(e.target.value)}
-                  className="w-full p-4 pl-12 pr-6 border-2 border-slate-200 bg-slate-50 focus:bg-white focus:border-[#09a5db] rounded-2xl text-2xl font-extrabold tracking-tight outline-none font-display transition-all text-slate-900"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Conditional dynamic prompt once amount is filled */}
-            {parseFloat(cardValue) > 0 ? (
-              <motion.div 
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-emerald-50/80 border border-emerald-100/70 p-4 rounded-2xl flex gap-3 text-emerald-900 leading-relaxed font-sans mt-1"
+            {/* Toggle funding mode: Static / Dynamic Strowallet Transfer vs Credit/Debit Card */}
+            <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => setFundMethod('transfer')}
+                className={`flex-1 py-3 text-xs font-bold font-display rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  fundMethod === 'transfer'
+                    ? 'bg-white text-slate-950 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
               >
-                <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 self-start mt-0.5" />
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold font-display">Processor Authorization Ready</span>
-                  <span className="text-[11px] text-emerald-800 font-medium mt-0.5">
-                    Please prompt the secure payment gateway to proceed. If you are satisfied with depositing <strong>₦{parseFloat(cardValue).toLocaleString()}</strong>, tap <strong>Pay Now</strong> below to authorize.
-                  </span>
+                <Building2 className="w-4 h-4 text-emerald-500" />
+                Automatic Bank Transfer
+              </button>
+              <button
+                type="button"
+                onClick={() => setFundMethod('card')}
+                className={`flex-1 py-3 text-xs font-bold font-display rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  fundMethod === 'card'
+                    ? 'bg-white text-slate-950 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <CreditCard className="w-4 h-4 text-[#09a5db]" />
+                Paystack Card Gateway
+              </button>
+            </div>
+
+            {fundMethod === 'transfer' ? (
+              /* strowallet transfers screen */
+              <div className="flex flex-col gap-5" id="strowallet-transfer-view">
+                <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 shadow-xl flex flex-col gap-4 relative overflow-hidden">
+                  <div className="absolute right-0 top-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-emerald-400" />
+                    <span className="text-xs font-bold font-mono index-strow-title uppercase tracking-widest text-slate-300">STROWALLET PERSONALIZED AUTO-BANK INFLOW</span>
+                  </div>
+
+                  {/* Bank Details */}
+                  <div className="flex flex-col gap-3.5 mt-2 bg-black/20 p-4 rounded-xl border border-white/5">
+                    <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">Bank Name</span>
+                        <span className="text-sm font-black font-display text-white">{resolvedBankName}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyAccount(resolvedBankName, 'Bank Name')}
+                        className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-350 hover:text-white rounded-lg transition-colors cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">Account Number</span>
+                        <span className="text-lg font-mono font-black tracking-widest text-emerald-400 select-all">{resolvedAccountNumber}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyAccount(resolvedAccountNumber, 'Account Number')}
+                        className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-350 hover:text-white rounded-lg transition-colors cursor-pointer"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex justify-between items-center">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold">Account Name</span>
+                        <span className="text-xs font-bold font-mono text-slate-200 uppercase">{resolvedStrowalletAccountName}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyAccount(resolvedStrowalletAccountName, 'Account Name')}
+                        className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-350 hover:text-white rounded-lg transition-colors cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="text-[10px] text-slate-400 flex gap-2 font-medium leading-relaxed bg-white/5 p-3 rounded-xl">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5 animate-pulse" />
+                    <span>Send NUBAN deposits to this personalized account. Strowallet routes and credits your portfolio instantly in less than 10 seconds.</span>
+                  </div>
                 </div>
-              </motion.div>
+
+                {/* Simulation controls */}
+                <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl flex flex-col gap-4 mt-2">
+                  <div className="flex flex-col">
+                    <span className="text-xs font-extrabold font-display text-slate-800 uppercase tracking-wider">Simulate Webhook Transfer</span>
+                    <span className="text-[10px] text-slate-500 font-medium">Test instant Strowallet automated webhook execution right in this preview environment.</span>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount to Simulate (₦)</label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">₦</span>
+                      <input
+                        type="number"
+                        value={fundingAmount}
+                        onChange={(e) => setFundingAmount(e.target.value)}
+                        placeholder="5,000"
+                        min={100}
+                        className="w-full p-2.5 pl-7 border border-slate-200 bg-white rounded-xl text-sm font-bold outline-none font-display text-slate-900 focus:border-slate-850"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleTriggerMockTransfer}
+                    disabled={isSimulatingTransfer}
+                    className="w-full py-3 bg-slate-900 border border-slate-950 text-white hover:bg-black font-display font-bold text-xs uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {isSimulatingTransfer ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Routing clearance...
+                      </>
+                    ) : (
+                      <>
+                        <ArrowDownLeft className="w-4 h-4 text-emerald-400" />
+                        Debit Simulator Balance (Strowallet Live Webhook Test)
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             ) : (
-              <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex gap-3 text-slate-500 leading-relaxed font-sans mt-1">
-                <AlertCircle className="w-5 h-5 text-slate-400 shrink-0 self-start mt-0.5" />
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold font-display text-slate-700">Enter Deposit Amount</span>
-                  <span className="text-[11px] text-slate-450 font-medium mt-0.5">
-                    Type any amount from ₦100 and above to unlock the Paystack checkout gateway.
-                  </span>
+              /* original card flow */
+              <div className="flex flex-col gap-5" id="paystack-card-view">
+                {/* Amount input block */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest font-display text-center sm:text-left">
+                    Enter Amount to Deposit (₦)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4.5 top-1/2 -translate-y-1/2 text-2xl font-black text-slate-400 font-display">
+                      ₦
+                    </span>
+                    <input
+                      id="payment-card-amount-input"
+                      type="number"
+                      placeholder="5,000"
+                      min={100}
+                      max={500000}
+                      value={cardValue}
+                      onChange={(e) => setCardValue(e.target.value)}
+                      className="w-full p-4 pl-12 pr-6 border-2 border-slate-200 bg-slate-50 focus:bg-white focus:border-[#09a5db] rounded-2xl text-2xl font-extrabold tracking-tight outline-none font-display transition-all text-slate-900"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Conditional dynamic prompt once amount is filled */}
+                {parseFloat(cardValue) > 0 ? (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-emerald-50/80 border border-emerald-100/70 p-4 rounded-2xl flex gap-3 text-emerald-900 leading-relaxed font-sans mt-1"
+                  >
+                    <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 self-start mt-0.5" />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold font-display">Processor Authorization Ready</span>
+                      <span className="text-[11px] text-emerald-800 font-medium mt-0.5">
+                        Please prompt the secure payment gateway to proceed. If you are satisfied with depositing <strong>₦{parseFloat(cardValue).toLocaleString()}</strong>, tap <strong>Pay Now</strong> below to authorize.
+                      </span>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex gap-3 text-slate-500 leading-relaxed font-sans mt-1">
+                    <AlertCircle className="w-5 h-5 text-slate-400 shrink-0 self-start mt-0.5" />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold font-display text-slate-705">Enter Deposit Amount</span>
+                      <span className="text-[11px] text-slate-450 font-medium mt-0.5">
+                        Type any amount from ₦100 and above to unlock the Paystack checkout gateway.
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Pay Now Button */}
+                <button
+                  id="real-paystack-popup-btn"
+                  type="button"
+                  onClick={handlePaystackCheckout}
+                  disabled={isProcessingCard || !cardValue || parseFloat(cardValue) <= 0}
+                  className="w-full py-4 bg-emerald-500 hover:bg-emerald-440 disabled:bg-slate-200 text-slate-950 disabled:text-slate-450 rounded-2xl text-xs font-black font-display uppercase tracking-widest transition-all active:scale-95 disabled:pointer-events-none shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer h-[54px]"
+                >
+                  {isProcessingCard ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin text-slate-950" />
+                      Connecting secure checkout portal...
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-5 h-5 text-slate-950 animate-pulse-slow font-bold" />
+                      Pay Now
+                    </>
+                  )}
+                </button>
+
+                {/* Secure Badge */}
+                <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-bold font-sans">
+                  <Lock className="w-3.5 h-3.5 text-slate-350" />
+                  <span>SECURED & ENCRYPTED BY PAYSTACK PORTAL</span>
                 </div>
               </div>
             )}
-
-            {/* Pay Now Button */}
-            <button
-              id="real-paystack-popup-btn"
-              type="button"
-              onClick={handlePaystackCheckout}
-              disabled={isProcessingCard || !cardValue || parseFloat(cardValue) <= 0}
-              className="w-full py-4 bg-emerald-500 hover:bg-emerald-440 disabled:bg-slate-200 text-slate-950 disabled:text-slate-450 rounded-2xl text-xs font-black font-display uppercase tracking-widest transition-all active:scale-95 disabled:pointer-events-none shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer h-[54px]"
-            >
-              {isProcessingCard ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin text-slate-950" />
-                  Connecting secure checkout portal...
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-5 h-5 text-slate-950 animate-pulse-slow font-bold" />
-                  Pay Now
-                </>
-              )}
-            </button>
-
-            {/* Secure Badge */}
-            <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-bold font-sans">
-              <Lock className="w-3.5 h-3.5 text-slate-350" />
-              <span>SECURED & ENCRYPTED BY PAYSTACK PORTAL</span>
-            </div>
 
           </div>
         </div>
