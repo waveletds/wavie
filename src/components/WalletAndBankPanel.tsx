@@ -28,6 +28,7 @@ interface WalletAndBankPanelProps {
   onWithdrawWallet: (amount: number, fee: number, description: string, details: any) => void;
   addToast: (msg: string, type: 'success' | 'error' | 'info' | 'warning') => void;
   onRegisterPendingPayment?: (amount: number, description: string, paymentMethod: string, reference: string) => Promise<void>;
+  onUpdateUser?: (updatedUser: UserState) => void;
 }
 
 export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
@@ -36,6 +37,7 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
   onWithdrawWallet,
   addToast,
   onRegisterPendingPayment,
+  onUpdateUser,
 }) => {
   const [activeTab, setActiveTab] = useState<'fund' | 'withdraw'>('fund');
   const [fundMethod, setFundMethod] = useState<'transfer' | 'card' | 'ussd'>('transfer');
@@ -43,6 +45,42 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
   // Virtual funding mock simulators
   const [fundingAmount, setFundingAmount] = useState<string>('5000');
   const [isSimulatingTransfer, setIsSimulatingTransfer] = useState<boolean>(false);
+  const [isRequestingMonnify, setIsRequestingMonnify] = useState<boolean>(false);
+
+  const handleRequestMonnifyAccount = async () => {
+    setIsRequestingMonnify(true);
+    addToast('Contacting Monnify payment orchestration engine...', 'info');
+
+    try {
+      const response = await fetch('/api/monnify/resolve-accounts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: user.email })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `Status ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.success && data.user) {
+        addToast('Dedicated permanent bank accounts requested successfully!', 'success');
+        if (onUpdateUser) {
+          onUpdateUser(data.user);
+        }
+      } else {
+        throw new Error(data.error || 'Failed to initialize active banking assets.');
+      }
+    } catch (err: any) {
+      console.error('[MONNIFY_API_PROVISION]', err);
+      addToast(`Monnify API Account Error: ${err.message}`, 'error');
+    } finally {
+      setIsRequestingMonnify(false);
+    }
+  };
 
   // Card details
   const [cardNo, setCardNo] = useState<string>('');
@@ -502,7 +540,6 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
             {fundMethod === 'transfer' ? (
               /* virtual transfers screen */
               <div className="flex flex-col gap-4" id="virtual-transfer-view">
-                
                 {/* Channel Switcher */}
                 <div className="flex gap-1.5 p-1 bg-slate-100 rounded-xl">
                   <button
@@ -531,54 +568,114 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
 
                 {bankProvider === 'monnify' ? (
                   /* Monnify Theme Card */
-                  <div className="bg-slate-950 text-white rounded-2xl p-5 border border-slate-850 shadow-xl flex flex-col gap-4 relative overflow-hidden" id="monnify-transfer-card">
-                    <div className="absolute right-0 top-0 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                  <div className="bg-slate-950 text-white rounded-2xl p-5 border border-slate-850 shadow-xl flex flex-col gap-4 relative overflow-hidden animate-fade-in" id="monnify-transfer-card">
+                    <div className="absolute right-0 top-0 w-24 h-24 bg-blue-550/15 rounded-full blur-2xl pointer-events-none"></div>
                     
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 font-extrabold text-[9px] rounded font-mono uppercase tracking-widest">MONNIFY ACTIVE</span>
-                      <span className="text-xs font-bold font-mono uppercase tracking-widest text-slate-300">AUTO-SETTLED NUBANS</span>
+                    <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded text-[9px] font-black font-mono uppercase tracking-widest ${
+                          user.monnifyAccountNumber 
+                            ? 'bg-blue-500/20 text-blue-400' 
+                            : 'bg-amber-550/20 text-amber-400'
+                        }`}>
+                          {user.monnifyAccountNumber ? 'Active Monnify Account' : 'Inactive / Sandbox'}
+                        </span>
+                        <span className="text-[11px] font-black tracking-wider text-slate-400 font-display">PERMANENT NUBANS</span>
+                      </div>
+                      <Building2 className="w-4 h-4 text-blue-400" />
                     </div>
 
-                    <div className="flex flex-col gap-2.5 mt-1">
-                      {monnifyAccountsList.map((acc, index) => (
-                        <div key={index} className="flex flex-col gap-1.5 bg-black/30 p-3.5 rounded-xl border border-white/5 relative">
-                          <div className="flex justify-between items-center">
-                            <span className="text-[9px] text-slate-400 uppercase font-semibold">Bank Channel</span>
-                            <span className="text-xs font-black text-white font-display">{acc.bankName}</span>
-                          </div>
-                          <div className="flex justify-between items-center pt-1.5 border-t border-white/5">
-                            <div className="flex flex-col">
-                              <span className="text-[8px] text-slate-500 uppercase font-semibold">Account Number</span>
-                              <span className="text-base font-mono font-black tracking-widest text-emerald-400 select-all">{acc.accountNumber}</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyAccount(acc.accountNumber, `${acc.bankName} Number`)}
-                              className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-350 hover:text-white rounded-lg transition-colors cursor-pointer"
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                    {!user.monnifyAccountNumber ? (
+                      /* DEACTIVATED / INACTIVE STATE: REQUEST FLOW */
+                      <div className="flex flex-col gap-4 relative z-10 p-1">
+                        <div className="flex flex-col gap-1 text-center py-2">
+                          <h4 className="text-sm font-black font-display text-amber-400 uppercase tracking-wide">Generate Dedicated Virtual Account</h4>
+                          <p className="text-[11px] text-slate-300 font-medium leading-relaxed mt-1">
+                            You do not have a dedicated permanent virtual bank account number provisioned. This account is dedicated solely to you and automatically routes all incoming bank transfer cash deposits to your wallet instantly.
+                          </p>
                         </div>
-                      ))}
 
-                      {/* Account Name */}
-                      <div className="flex justify-between items-center p-3.5 bg-black/20 rounded-xl border border-white/5">
-                        <div className="flex flex-col">
-                          <span className="text-[8px] text-slate-550 uppercase font-black uppercase">Beneficiary Name</span>
-                          <span className="text-xs font-bold font-mono text-slate-200 uppercase">{resolvedMonnifyAccountName}</span>
-                        </div>
                         <button
+                          id="btn-request-monnify-account"
                           type="button"
-                          onClick={() => handleCopyAccount(resolvedMonnifyAccountName, 'Beneficiary Name')}
-                          className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-350 hover:text-white rounded-lg transition-colors cursor-pointer"
+                          onClick={handleRequestMonnifyAccount}
+                          disabled={isRequestingMonnify}
+                          className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black font-display uppercase tracking-widest rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                         >
-                          <Copy className="w-3.5 h-3.5" />
+                          {isRequestingMonnify ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin text-white" />
+                              Negotiating with Monnify API Handshake...
+                            </>
+                          ) : (
+                            <>
+                              <Building2 className="w-4 h-4 text-emerald-450 stroke-[3]" />
+                              Provision My Permanent Account Number
+                            </>
+                          )}
                         </button>
                       </div>
-                    </div>
+                    ) : (
+                      /* ACTIVATED / PRESENT STATE: LIST CHANNELS */
+                      <div className="flex flex-col gap-2.5 mt-1">
+                        {monnifyAccountsList.map((acc, index) => (
+                          <div key={index} id={`monnify-nuban-channel-${index}`} className="flex flex-col gap-1.5 bg-black/35 p-3.5 rounded-xl border border-white/5 relative">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[9px] text-slate-400 uppercase font-semibold">Bank Channel</span>
+                              <span className="text-xs font-black text-white font-display">{acc.bankName}</span>
+                            </div>
+                            <div className="flex justify-between items-center pt-1.5 border-t border-white/5">
+                              <div className="flex flex-col">
+                                <span className="text-[8px] text-slate-500 uppercase font-semibold">Account Number</span>
+                                <span className="text-base font-mono font-black tracking-widest text-emerald-400 select-all">{acc.accountNumber}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyAccount(acc.accountNumber, `${acc.bankName} Number`)}
+                                className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-350 hover:text-white rounded-lg transition-colors cursor-pointer"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
 
-                    <div className="text-[10px] text-slate-400 flex gap-2 font-medium leading-relaxed bg-white/5 p-3 rounded-xl">
+                        {/* Account Name */}
+                        <div className="flex justify-between items-center p-3.5 bg-black/20 rounded-xl border border-white/5">
+                          <div className="flex flex-col">
+                            <span className="text-[8px] text-slate-500 uppercase font-black">Beneficiary Name</span>
+                            <span className="text-xs font-bold font-mono text-slate-200 uppercase">{resolvedMonnifyAccountName}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyAccount(resolvedMonnifyAccountName, 'Beneficiary Name')}
+                            className="p-1.5 bg-white/5 hover:bg-white/10 text-slate-350 hover:text-white rounded-lg transition-colors cursor-pointer"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Sync info banner */}
+                        <div className="flex justify-between items-center py-2 px-1 mt-1 border-t border-white/5 text-[9px]">
+                          <span className="text-slate-500 font-mono tracking-tight font-medium select-all">REF: {user.monnifyAccountReference || 'N/A'}</span>
+                          <button
+                            type="button"
+                            onClick={handleRequestMonnifyAccount}
+                            disabled={isRequestingMonnify}
+                            className="flex items-center gap-1 text-blue-400 hover:text-blue-300 font-black uppercase tracking-widest cursor-pointer disabled:opacity-50"
+                          >
+                            {isRequestingMonnify ? (
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-2.5 h-2.5" />
+                            )}
+                            Re-Sync API
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="text-[10px] text-slate-400 flex gap-2 font-medium leading-relaxed bg-white/5 p-3 rounded-xl mt-1">
                       <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0 mt-0.5 animate-pulse" />
                       <span>These are individual automated accounts powered by Monnify Gateway. Send transfers of any amount and your wallet will credit instantly.</span>
                     </div>

@@ -88,7 +88,10 @@ async function startServer() {
 
   // Monnify API integration helper to authenticate and register reserved virtual bank accounts
   async function createMonnifyVirtualAccount(email: string, userObj: any, config: any) {
-    const baseUrl = (config.monnify_api_url && config.monnify_api_url.trim() !== '') ? config.monnify_api_url.trim() : 'https://sandbox.monnify.com';
+    let baseUrl = (config.monnify_api_url && config.monnify_api_url.trim() !== '') ? config.monnify_api_url.trim() : 'https://sandbox.monnify.com';
+    if (config.monnify_api_key && config.monnify_api_key.trim().startsWith('MK_PROD_') && (!config.monnify_api_url || config.monnify_api_url.includes('sandbox'))) {
+      baseUrl = 'https://api.monnify.com';
+    }
     
     if (!config.monnify_api_key || !config.monnify_secret_key || !config.monnify_contract_code) {
       throw new Error('Monnify gateway API keys are not fully set.');
@@ -198,8 +201,11 @@ async function startServer() {
       let monnifyAccRef = user.monnify_account_reference;
       let monnifyAccNo = user.monnify_account_number;
 
-      if (!monnifyAccRef || !monnifyAccNo) {
-        const config = await db('api_configs').first();
+      const config = await db('api_configs').first();
+      const hasRealConfig = config && config.monnify_api_key && config.monnify_secret_key && config.monnify_contract_code && !config.monnify_api_key.toLowerCase().includes('sandbox') && !config.monnify_api_key.toLowerCase().includes('mock');
+      const isSimulated = monnifyAccRef && String(monnifyAccRef).startsWith('MNFY_ACC_SIM_');
+
+      if (!monnifyAccRef || !monnifyAccNo || (isSimulated && hasRealConfig)) {
         let monnifyDetails = null;
         let realSyncPassed = false;
 
@@ -1225,7 +1231,10 @@ async function startServer() {
       const monnifyApiKey = config ? config.monnify_api_key : null;
       const monnifySecretKey = config ? config.monnify_secret_key : null;
       const monnifyContractCode = config ? config.monnify_contract_code : null;
-      const monnifyApiUrl = (config && config.monnify_api_url && config.monnify_api_url.trim() !== '') ? config.monnify_api_url.trim() : 'https://sandbox.monnify.com';
+      let monnifyApiUrl = (config && config.monnify_api_url && config.monnify_api_url.trim() !== '') ? config.monnify_api_url.trim() : 'https://sandbox.monnify.com';
+      if (monnifyApiKey && monnifyApiKey.trim().startsWith('MK_PROD_') && (!config?.monnify_api_url || config.monnify_api_url.includes('sandbox'))) {
+        monnifyApiUrl = 'https://api.monnify.com';
+      }
 
       const isLiveMonnify = (
         (tx.type === 'airtime' || tx.type === 'data' || tx.type === 'electricity' || tx.type === 'cable' || tx.type === 'betting') &&
@@ -2139,15 +2148,18 @@ async function startServer() {
         return res.status(404).json({ error: 'User record matches no registrations.' });
       }
 
-      // Return existing details if already assigned
+      // Look up Monnify configurations first to check if they are real production keys
+      const config = await db('api_configs').first();
+      const hasRealConfig = config && config.monnify_api_key && config.monnify_secret_key && config.monnify_contract_code && !config.monnify_api_key.toLowerCase().includes('sandbox') && !config.monnify_api_key.toLowerCase().includes('mock');
+
+      // Return existing details if already assigned unless it is a mock simulated one and we now have a real API configuration
       if (userObj.monnify_account_number && userObj.monnify_account_reference) {
-        return res.json({ success: true, user: mapDbUserToClient(userObj) });
+        const isSimulated = String(userObj.monnify_account_reference).startsWith('MNFY_ACC_SIM_');
+        if (!isSimulated || !hasRealConfig) {
+          return res.json({ success: true, user: mapDbUserToClient(userObj) });
+        }
       }
 
-      // Look up Monnify admin configurations to attempt real sync
-      // Using first config available or admin account
-      const config = await db('api_configs').first();
-      
       let monnifyDetails = null;
       let realSyncPassed = false;
 

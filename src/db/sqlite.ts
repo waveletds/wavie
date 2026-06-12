@@ -372,18 +372,26 @@ async function seedDatabase() {
       paystack_public_key: 'pk_live_26c21769a652b4bfd26b4f02d485c915d21fe69e',
       strowallet_public_key: 'pub_2tGdv9VqcdW3rMD8TUjUNkUEIYoUIkj5FRk4TcXu',
       strowallet_secret_key: 'sec_wQ3z3fvOWVGMW2U7ByZlrLatPGs7umseervrwLZB',
-      strowallet_api_url: 'https://api.strowallet.com/v1'
+      strowallet_api_url: 'https://api.strowallet.com/v1',
+      monnify_api_key: 'MK_PROD_7PTFPLFJMA',
+      monnify_secret_key: 'EVWU08FGU5593XD9RU00HPSL3GGE7RCF',
+      monnify_contract_code: '990220110619',
+      monnify_api_url: 'https://api.monnify.com'
     });
-    console.log('✔ Seeded default API configs entry with live Paystack & Strowallet keys.');
+    console.log('✔ Seeded default API configs entry with live Paystack, Strowallet & Monnify keys.');
   } else {
-    // Ensure Paystack and Strowallet keys are set to user's requested live production key
+    // Ensure Paystack, Strowallet, and Monnify keys are set to user's requested live production keys
     await db('api_configs').where({ user_email: defaultEmail }).update({
       paystack_public_key: 'pk_live_26c21769a652b4bfd26b4f02d485c915d21fe69e',
       strowallet_public_key: 'pub_2tGdv9VqcdW3rMD8TUjUNkUEIYoUIkj5FRk4TcXu',
       strowallet_secret_key: 'sec_wQ3z3fvOWVGMW2U7ByZlrLatPGs7umseervrwLZB',
-      strowallet_api_url: 'https://api.strowallet.com/v1'
+      strowallet_api_url: 'https://api.strowallet.com/v1',
+      monnify_api_key: 'MK_PROD_7PTFPLFJMA',
+      monnify_secret_key: 'EVWU08FGU5593XD9RU00HPSL3GGE7RCF',
+      monnify_contract_code: '990220110619',
+      monnify_api_url: 'https://api.monnify.com'
     });
-    console.log('✔ Updated API configs with requested live Paystack & Strowallet keys.');
+    console.log('✔ Updated API configs with requested live Paystack & Strowallet & Monnify keys.');
   }
 
   // Always clean up default mock transactions if they exist

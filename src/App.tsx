@@ -1844,6 +1844,7 @@ export default function App() {
                       user={user}
                       onFundWallet={handleWalletFunding}
                       onRegisterPendingPayment={handleRegisterPendingPayment}
+                      onUpdateUser={setUser}
                       onWithdrawWallet={(amt, fee, desc, details) => {
                         handleInterceptPurchase({
                           type: 'withdrawal',
