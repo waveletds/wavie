@@ -1646,8 +1646,18 @@ export default function App() {
             <header className="flex items-center justify-between gap-2.5 pb-4 mb-6 border-b border-[#E5E2DA]/80 w-full min-w-0 relative z-[20]">
                {/* Left side: Navigation links row */}
                <div className="flex items-center min-w-0">
+                  {/* On Mobile: brand indicator */}
+                  <div className="flex sm:hidden items-center gap-2 select-none shrink-0 pr-2">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-md shadow-emerald-500/10">
+                      <span className="text-white text-xs font-black font-display">W</span>
+                    </div>
+                    <span className="text-xs font-black font-display tracking-wider text-slate-900 uppercase">
+                      {activeTab === 'dashboard' ? 'Overview' : activeTab === 'airtime' ? 'Airtime' : activeTab === 'data' ? 'Data Plan' : activeTab === 'electricity' ? 'Utilities' : activeTab === 'cable' ? 'Cable TV' : activeTab === 'education' ? 'Exam ePIN' : activeTab}
+                    </span>
+                  </div>
+
                   {/* Top-left Quick-Navigation Row - Silky Glass rounded container */}
-                  <nav className="flex items-center gap-1 bg-slate-200/50 backdrop-blur-md p-1 rounded-full border border-[#E5E2DA]/60 overflow-x-auto no-scrollbar scroll-smooth">
+                  <nav className="hidden sm:flex items-center gap-1 bg-slate-200/50 backdrop-blur-md p-1 rounded-full border border-[#E5E2DA]/60 overflow-x-auto no-scrollbar scroll-smooth">
                     {menuItems.slice(0, 4).map((item) => (
                       <button
                         key={item.id}

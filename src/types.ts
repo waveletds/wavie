@@ -67,10 +67,6 @@ export interface UserState {
   isWebAuthnEnabled?: boolean;
   webAuthnCredentialId?: string;
   role?: 'user' | 'admin' | 'super_admin';
-  strowalletCustomerId?: string | null;
-  strowalletAccountNumber?: string | null;
-  strowalletBankName?: string | null;
-  strowalletAccountName?: string | null;
   monnifyAccountReference?: string | null;
   monnifyBankName?: string | null;
   monnifyAccountNumber?: string | null;

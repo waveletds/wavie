@@ -51,10 +51,6 @@ async function startServer() {
       isWebAuthnEnabled: dbUser.is_webauthn_enabled === 1,
       webAuthnCredentialId: dbUser.webauthn_credential_id || '',
       role: dbUser.role || 'user',
-      strowalletCustomerId: dbUser.strowallet_customer_id || null,
-      strowalletAccountNumber: dbUser.strowallet_account_number || null,
-      strowalletBankName: dbUser.strowallet_bank_name || null,
-      strowalletAccountName: dbUser.strowallet_account_name || null,
       monnifyAccountReference: dbUser.monnify_account_reference || null,
       monnifyBankName: dbUser.monnify_bank_name || null,
       monnifyAccountNumber: dbUser.monnify_account_number || null,
@@ -171,32 +167,6 @@ async function startServer() {
 
       let updated = false;
 
-      // 1. Check/resolve Strowallet credentials
-      let customerId = user.strowallet_customer_id;
-      let accountNumber = user.strowallet_account_number;
-      let bankName = user.strowallet_bank_name;
-      let accountName = user.strowallet_account_name;
-
-      if (!customerId || !accountNumber) {
-        if (!customerId) {
-          customerId = `WAVIE-CST-${Math.floor(100000 + Math.random() * 899999)}`;
-        }
-        if (!accountNumber) {
-          const last8Digits = user.phone.startsWith('0') ? user.phone.substring(2) : user.phone.substring(1);
-          accountNumber = `502${last8Digits.padEnd(7, '8')}`.substring(0, 10);
-          const banks = ['Sterling Bank', 'Wema Bank', 'Providus Bank'];
-          bankName = banks[Math.floor(Math.random() * banks.length)];
-          accountName = `WAVIE / ${user.name.toUpperCase()}`;
-        }
-        await db('users').where({ email: user.email }).update({
-          strowallet_customer_id: customerId,
-          strowallet_account_number: accountNumber,
-          strowallet_bank_name: bankName,
-          strowallet_account_name: accountName
-        });
-        updated = true;
-      }
-
       // 2. Check/resolve Monnify credentials
       let monnifyAccRef = user.monnify_account_reference;
       let monnifyAccNo = user.monnify_account_number;
@@ -277,7 +247,6 @@ async function startServer() {
           wallet_balance: user.wallet_balance,
           kyc_level: user.kyc_level,
           role: user.role,
-          strowallet_account_number: user.strowallet_account_number || null,
           is_pin_set: user.is_pin_set
         }, { onConflict: 'email' });
         
@@ -2042,93 +2011,6 @@ async function startServer() {
     }
 
     return res.status(200).json({ status: 'success', message: 'Assigned event verified and recorded.' });
-  });
-
-  // Secure Dynamic Virtual Account Funding Webhook
-  app.post('/api/strowallet/webhook', async (req: Request, res: Response, next: NextFunction) => {
-    const payload = req.body || {};
-    console.log('[AUTO_BANK_WEBHOOK] Notification payload received:', JSON.stringify(payload));
-
-    const eventName = payload.event || payload.type || 'vaccount.credited';
-    const dataObj = payload.data || payload;
-
-    // Detect user identifier fields like email, customer_id or account_number
-    const customerId = dataObj.customer_id || dataObj.customer || dataObj.customerId;
-    const accountNumber = dataObj.account_number || dataObj.accountnumber || dataObj.virtual_account_number;
-    const amountNGN = parseFloat(dataObj.amount) || 0;
-    const reference = dataObj.reference || dataObj.txRef || dataObj.txKey || `AUTOBANK-WEB-${Date.now()}`;
-
-    if (amountNGN <= 0) {
-      console.warn('[AUTO_BANK_WEBHOOK] Received zero or negative funding notification. Ignored.');
-      return res.status(200).json({ success: true, message: 'Zero value event ignored.' });
-    }
-
-    try {
-      await db.transaction(async (trx) => {
-        // Match user by database identifiers, falls back to matching by email or phone
-        let userObj = null;
-        if (customerId) {
-          userObj = await trx('users').where({ strowallet_customer_id: customerId }).first();
-        }
-        if (!userObj && accountNumber) {
-          userObj = await trx('users').where({ strowallet_account_number: accountNumber }).first();
-        }
-        if (!userObj && dataObj.email) {
-          userObj = await trx('users').where({ email: String(dataObj.email).trim() }).first();
-        }
-
-        if (!userObj) {
-          console.error(`[AUTO_BANK_WEBHOOK] Match fail: customerId ${customerId}, accountNum ${accountNumber}`);
-          throw new Error('USER_NOT_FOUND');
-        }
-
-        const existingTx = await trx('transactions').where({ reference }).first();
-        if (existingTx) {
-          if (existingTx.status === 'success') {
-            throw new Error('DUPLICATE_REFERENCE_DETECTED');
-          }
-          await trx('transactions').where({ reference }).update({
-            status: 'success',
-            amount: amountNGN,
-            description: `Funded +₦${amountNGN.toLocaleString()} securely via Auto-Bank Webhook Notification`
-          });
-        } else {
-          await trx('transactions').insert({
-            id: `tx_fund_vbank_${Date.now()}`,
-            user_email: userObj.email,
-            type: 'funding',
-            amount: amountNGN,
-            fee: 0,
-            status: 'success',
-            timestamp: new Date().toISOString(),
-            description: `Funded +₦${amountNGN.toLocaleString()} securely via Virtual Account Transfer`,
-            recipient: 'Primary wallet',
-            reference: reference,
-            details: JSON.stringify({
-              gateway: 'virtual_bank_webhook',
-              customerId: customerId || null,
-              accountNumber: accountNumber || null,
-              payload: dataObj
-            })
-          });
-        }
-
-        const currentBalance = userObj.wallet_balance || 0;
-        await trx('users').where({ id: userObj.id }).update({ wallet_balance: currentBalance + amountNGN });
-        console.log(`[AUTO_BANK_WEBHOOK] Successfully credited +₦${amountNGN} to user ${userObj.email}`);
-      });
-
-      return res.status(200).json({ success: true, message: 'Webhook processing completed successfully.' });
-    } catch (err: any) {
-      if (err.message === 'USER_NOT_FOUND') {
-        return res.status(404).json({ error: 'Matching user or customer account was not found.' });
-      }
-      if (err.message === 'DUPLICATE_REFERENCE_DETECTED') {
-        return res.status(200).json({ success: true, message: 'Already processed transaction reference' });
-      }
-      console.error('[AUTO_BANK_WEBHOOK] Exception occurred:', err.message);
-      return res.status(500).json({ error: err.message });
-    }
   });
 
   // ==========================================

@@ -498,14 +498,14 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display">
                   Select Decoder Provider
                 </label>
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 min-[400px]:grid-cols-4 gap-3">
                   {CABLE_PROVIDERS.map((cable) => (
                     <button
                       key={cable.id}
                       id={`cable-provider-choice-${cable.id}`}
                       type="button"
                       onClick={() => setSelectedCableId(cable.id)}
-                      className={`relative p-3 border-2 rounded-xl text-center font-display font-bold text-xs transition-all active:scale-95 ${
+                      className={`relative p-3 border-2 rounded-xl text-center font-display font-bold text-xs transition-colors active:scale-95 ${
                         selectedCableId === cable.id
                           ? 'border-indigo-600 bg-indigo-50/60 text-indigo-950 font-black shadow-sm'
                           : 'border-slate-100 bg-slate-50 text-slate-500 hover:bg-slate-50'

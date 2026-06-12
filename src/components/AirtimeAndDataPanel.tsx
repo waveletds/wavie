@@ -214,7 +214,7 @@ export const AirtimeAndDataPanel: React.FC<AirtimeDataPanelProps> = ({
             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display">
               Select Operator
             </label>
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 min-[330px]:grid-cols-4 gap-2.5 sm:gap-3">
               {TELCOS.map((telco) => (
                 <button
                   key={telco.name}
@@ -224,7 +224,7 @@ export const AirtimeAndDataPanel: React.FC<AirtimeDataPanelProps> = ({
                     setSelectedNetwork(telco.name);
                     setSelectedPlanId('');
                   }}
-                  className={`relative p-4 border rounded-2xl text-center flex flex-col items-center justify-center font-display font-black tracking-wide text-xs transition-all duration-300 active:scale-95 cursor-pointer ${
+                  className={`relative p-3 sm:p-4 border rounded-2xl text-center flex flex-col items-center justify-center font-display font-black tracking-wide text-xs transition-all duration-300 active:scale-95 cursor-pointer ${
                     selectedNetwork === telco.name
                       ? `${telco.borderColor} ${telco.brandColor} shadow-sm border-2 scale-[1.02]`
                       : 'border-[#E5E2DA]/90 bg-[#FAF9F6]/50 text-slate-600 hover:bg-white hover:border-slate-400'
@@ -302,14 +302,14 @@ export const AirtimeAndDataPanel: React.FC<AirtimeDataPanelProps> = ({
               {/* Amount Quick Presets */}
               <div className="flex flex-col gap-1.5">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Quick Select Presets</span>
-                <div className="grid grid-cols-6 gap-2">
+                <div className="grid grid-cols-3 min-[480px]:grid-cols-6 gap-2">
                   {[100, 200, 500, 1000, 2000, 5000].map((presetAmt) => (
                     <button
                       key={presetAmt}
                       id={`preset-airtime-${presetAmt}`}
                       type="button"
                       onClick={() => handleAirtimePreset(presetAmt)}
-                      className="py-2 px-1 border border-slate-200 text-slate-700 bg-white hover:border-emerald-500 hover:text-emerald-600 rounded-lg text-xs font-bold font-display transition-all active:scale-95 shadow-sm"
+                      className="py-2.5 px-1 border border-slate-200 text-slate-700 bg-white hover:border-emerald-500 hover:text-emerald-600 rounded-lg text-xs font-bold font-display transition-all active:scale-95 shadow-sm"
                     >
                       ₦{presetAmt.toLocaleString('en-NG')}
                     </button>
