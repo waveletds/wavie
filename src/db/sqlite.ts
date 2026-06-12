@@ -116,6 +116,36 @@ export async function runMigrations() {
       });
       console.log('✔ Patched strowallet_account_name column.');
     }
+
+    // Programmatically patch Monnify columns on "users" table
+    const hasMonnifyRef = await db.schema.hasColumn('users', 'monnify_account_reference');
+    if (!hasMonnifyRef) {
+      await db.schema.alterTable('users', (table) => {
+        table.string('monnify_account_reference').nullable();
+      });
+      console.log('✔ Patched monnify_account_reference column.');
+    }
+    const hasMonnifyBank = await db.schema.hasColumn('users', 'monnify_bank_name');
+    if (!hasMonnifyBank) {
+      await db.schema.alterTable('users', (table) => {
+        table.string('monnify_bank_name').nullable();
+      });
+      console.log('✔ Patched monnify_bank_name column.');
+    }
+    const hasMonnifyAcc = await db.schema.hasColumn('users', 'monnify_account_number');
+    if (!hasMonnifyAcc) {
+      await db.schema.alterTable('users', (table) => {
+        table.string('monnify_account_number').nullable();
+      });
+      console.log('✔ Patched monnify_account_number column.');
+    }
+    const hasMonnifyName = await db.schema.hasColumn('users', 'monnify_account_name');
+    if (!hasMonnifyName) {
+      await db.schema.alterTable('users', (table) => {
+        table.string('monnify_account_name').nullable();
+      });
+      console.log('✔ Patched monnify_account_name column.');
+    }
   }
 
   // 2. Transactions table with UNIQUE reference & foreign_keys
@@ -182,8 +212,12 @@ export async function runMigrations() {
       table.string('strowallet_api_url').defaultTo('https://api.strowallet.com/v1').nullable();
       table.string('supabase_url').nullable();
       table.string('supabase_anon_key').nullable();
+      table.string('monnify_api_key').nullable();
+      table.string('monnify_secret_key').nullable();
+      table.string('monnify_contract_code').nullable();
+      table.string('monnify_api_url').defaultTo('https://sandbox.monnify.com').nullable();
     });
-    console.log('✔ Migrated "api_configs" table with Paystack, SMM, Strowallet & Supabase support.');
+    console.log('✔ Migrated "api_configs" table with Paystack, SMM, Strowallet, Supabase & Monnify support.');
   } else {
     // Add additional fields dynamically to handle runtime updates
     const hasPubKey = await db.schema.hasColumn('api_configs', 'paystack_public_key');
@@ -218,6 +252,16 @@ export async function runMigrations() {
         table.string('supabase_anon_key').nullable();
       });
       console.log('✔ Patched "api_configs" table with supabase_url and supabase_anon_key.');
+    }
+    const hasMonnifyFields = await db.schema.hasColumn('api_configs', 'monnify_api_key');
+    if (!hasMonnifyFields) {
+      await db.schema.table('api_configs', (table) => {
+        table.string('monnify_api_key').nullable();
+        table.string('monnify_secret_key').nullable();
+        table.string('monnify_contract_code').nullable();
+        table.string('monnify_api_url').defaultTo('https://sandbox.monnify.com').nullable();
+      });
+      console.log('✔ Patched "api_configs" table with Monnify variables.');
     }
   }
 

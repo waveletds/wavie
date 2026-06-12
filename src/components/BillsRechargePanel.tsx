@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Lightbulb, Tv, Check, Eye, AlertCircle, RefreshCw, UserCheck, ShieldAlert, Sparkles } from 'lucide-react';
+import { Lightbulb, Tv, Check, Eye, AlertCircle, RefreshCw, UserCheck, ShieldAlert, Sparkles, Trophy } from 'lucide-react';
 import { UserState, SavedBeneficiary, Network } from '../types';
 import { DISCOS, CABLE_PROVIDERS, MOCK_NAMES } from '../data';
 import { BeneficiarySelector } from './BeneficiarySelector';
+
+const BETTING_PROVIDERS = [
+  { id: 'sportybet', name: 'SportyBet', placeholder: 'Enter SportyBet Customer ID (e.g. 5892014)' },
+  { id: 'bet9ja', name: 'Bet9ja', placeholder: 'Enter Bet9ja User Account ID (e.g. 3394821)' },
+  { id: '1xbet', name: '1xBet', placeholder: 'Enter 1xBet Player ID (e.g. 8492041)' },
+  { id: 'betking', name: 'BetKing', placeholder: 'Enter BetKing User ID (e.g. 2938174)' },
+];
 
 interface BillsRechargePanelProps {
   user: UserState;
   beneficiaries: SavedBeneficiary[];
   onTriggerPurchase: (params: {
-    type: 'electricity' | 'cable';
+    type: 'electricity' | 'cable' | 'betting';
     amount: number;
     recipient: string;
     description: string;
@@ -18,6 +25,7 @@ interface BillsRechargePanelProps {
       provider?: string;
       packageName?: string;
       iucNumber?: string;
+      accountId?: string;
       token?: string; // For prepaid electric
       saveBeneficiary?: boolean;
       beneficiaryName?: string;
@@ -32,7 +40,7 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
   onTriggerPurchase,
   addToast,
 }) => {
-  const [activeTab, setActiveTab] = useState<'electricity' | 'cable'>('electricity');
+  const [activeTab, setActiveTab] = useState<'electricity' | 'cable' | 'betting'>('electricity');
 
   // Electricity variables
   const [selectedDiscoId, setSelectedDiscoId] = useState<string>('ikedc');
@@ -55,6 +63,18 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
     customerName: string;
     currentPackage: string;
     dueDate: string;
+    isValidated: boolean;
+  } | null>(null);
+
+  // Betting variables
+  const [selectedBettingId, setSelectedBettingId] = useState<string>('sportybet');
+  const [bettingUserId, setBettingUserId] = useState<string>('');
+  const [bettingAmount, setBettingAmount] = useState<string>('');
+  const [isValidatingBetting, setIsValidatingBetting] = useState<boolean>(false);
+  const [validatedBettingClass, setValidatedBettingClass] = useState<{
+    customerName: string;
+    accountId: string;
+    status: string;
     isValidated: boolean;
   } | null>(null);
 
@@ -134,6 +154,29 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
     }, 1200);
   };
 
+  const handleValidateBetting = () => {
+    if (bettingUserId.trim().length < 6) {
+      addToast('Please enter a valid sports betting User ID (minimum 6 digits).', 'error');
+      return;
+    }
+
+    setIsValidatingBetting(true);
+    setValidatedBettingClass(null);
+
+    setTimeout(() => {
+      setIsValidatingBetting(false);
+      const randomName = MOCK_NAMES[Math.floor(Math.random() * MOCK_NAMES.length)];
+      
+      setValidatedBettingClass({
+        customerName: randomName,
+        accountId: bettingUserId,
+        status: 'Active Registered Betting Node Client',
+        isValidated: true,
+      });
+      addToast('Sports betting account verified successfully!', 'success');
+    }, 1200);
+  };
+
   // Run initial package selections
   useEffect(() => {
     const providerObj = CABLE_PROVIDERS.find((c) => c.id === selectedCableId);
@@ -190,7 +233,7 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
           beneficiaryName: beneficiaryName.trim() || undefined
         }
       });
-    } else {
+    } else if (activeTab === 'cable') {
       // Cable renewal
       if (!validatedCableClass || !validatedCableClass.isValidated) {
         addToast('Please validate your decoder Smartcard/IUC number first.', 'error');
@@ -225,6 +268,38 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
           beneficiaryName: beneficiaryName.trim() || undefined
         }
       });
+    } else if (activeTab === 'betting') {
+      // Bet account funding
+      if (!validatedBettingClass || !validatedBettingClass.isValidated) {
+        addToast('Please validate your Player User ID before paying.', 'error');
+        return;
+      }
+
+      const amtNum = parseFloat(bettingAmount) || 0;
+      if (amtNum < 100 || amtNum > 100000) {
+        addToast('Bet account funding value must be between ₦100 and ₦100,000.', 'error');
+        return;
+      }
+
+      if (user.walletBalance < amtNum) {
+        addToast('Insufficient wallet balance. Please load funds first.', 'error');
+        return;
+      }
+
+      const betProviderObj = BETTING_PROVIDERS.find((b) => b.id === selectedBettingId);
+
+      onTriggerPurchase({
+        type: 'betting',
+        amount: amtNum,
+        recipient: bettingUserId,
+        description: `${betProviderObj?.name} User ${bettingUserId} Fund Deposit`,
+        details: {
+          provider: betProviderObj?.name,
+          accountId: bettingUserId,
+          saveBeneficiary,
+          beneficiaryName: beneficiaryName.trim() || undefined
+        }
+      });
     }
   };
 
@@ -233,7 +308,7 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
   return (
     <div className="flex flex-col gap-6" id="bills-feature-panel">
       {/* Upper Dual Switch tabs */}
-      <div className="bg-slate-100 p-1.5 rounded-2xl flex max-w-md w-full">
+      <div className="bg-slate-100 p-1.5 rounded-2xl flex max-w-lg w-full">
         <button
           id="bill-tab-electricity"
           onClick={() => {
@@ -241,7 +316,7 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
             setSaveBeneficiary(false);
             setBeneficiaryName('');
           }}
-          className={`flex-1 py-3 text-sm font-bold font-display rounded-xl transition-all flex items-center justify-center gap-2 ${
+          className={`flex-1 py-3 text-xs font-bold font-display rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 'electricity' 
               ? 'bg-white text-slate-950 shadow-sm' 
               : 'text-slate-500 hover:text-slate-800'
@@ -257,7 +332,7 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
             setSaveBeneficiary(false);
             setBeneficiaryName('');
           }}
-          className={`flex-1 py-3 text-sm font-bold font-display rounded-xl transition-all flex items-center justify-center gap-2 ${
+          className={`flex-1 py-3 text-xs font-bold font-display rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeTab === 'cable' 
               ? 'bg-white text-slate-950 shadow-sm' 
               : 'text-slate-500 hover:text-slate-800'
@@ -266,6 +341,22 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
           <Tv className="w-4 h-4 text-rose-500" />
           Decoder TV Cable
         </button>
+        <button
+          id="bill-tab-betting"
+          onClick={() => {
+            setActiveTab('betting');
+            setSaveBeneficiary(false);
+            setBeneficiaryName('');
+          }}
+          className={`flex-1 py-3 text-xs font-bold font-display rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeTab === 'betting' 
+              ? 'bg-white text-slate-950 shadow-sm animate-fade-in' 
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Trophy className="w-4 h-4 text-emerald-500 animate-bounce" />
+          Betting Funding
+        </button>
       </div>
 
       {/* Main card panels splits */}
@@ -273,14 +364,20 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
         {/* Form area list */}
         <form onSubmit={handleSubmit} className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col gap-6">
           <div className="flex items-center gap-2 border-b border-slate-50 pb-3">
-            <span className="p-2 bg-slate-50 rounded-xl">
-              {activeTab === 'electricity' ? <Lightbulb className="w-5 h-5 text-amber-500" /> : <Tv className="w-5 h-5 text-rose-500" />}
+            <span className="p-2 bg-slate-50 rounded-xl animate-pulse">
+              {activeTab === 'electricity' ? (
+                <Lightbulb className="w-5 h-5 text-amber-500" />
+              ) : activeTab === 'cable' ? (
+                <Tv className="w-5 h-5 text-rose-500" />
+              ) : (
+                <Trophy className="w-5 h-5 text-emerald-500" />
+              )}
             </span>
             <div>
               <h2 className="text-sm font-bold text-slate-800 font-display">
-                {activeTab === 'electricity' ? 'Prepaid Electricity Token' : 'Decoder Subscriptions'}
+                {activeTab === 'electricity' ? 'Prepaid Electricity Token' : activeTab === 'cable' ? 'Decoder Subscriptions' : 'Sports Betting Account Funding'}
               </h2>
-              <p className="text-[11px] text-slate-400 font-medium">Auto-dispatching validation algorithms.</p>
+              <p className="text-[11px] text-slate-400 font-medium">Auto-dispatching validation and instant wallet settlement.</p>
             </div>
           </div>
 
@@ -393,7 +490,7 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
                 <span className="text-[10px] text-slate-400 font-medium font-sans">Convenience processing surcharge fee: ₦100 convenience charge apply on electricity bills.</span>
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'cable' ? (
             /* Cable Decoder renewal payments */
             <div className="flex flex-col gap-4">
               {/* Choose Cable Provider */}
@@ -516,6 +613,118 @@ export const BillsRechargePanel: React.FC<BillsRechargePanelProps> = ({
                     </button>
                   ))}
                 </div>
+              </div>
+            </div>
+          ) : (
+            /* Sports Betting Account Funding */
+            <div className="flex flex-col gap-4">
+              {/* Choose Betting Provider */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display">
+                  Select Sports Betting Bookmaker Provider
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {BETTING_PROVIDERS.map((bet) => (
+                    <button
+                      key={bet.id}
+                      id={`betting-provider-choice-${bet.id}`}
+                      type="button"
+                      onClick={() => {
+                        setSelectedBettingId(bet.id);
+                        setValidatedBettingClass(null);
+                      }}
+                      className={`relative p-3 border-2 rounded-xl text-center font-display font-bold text-xs transition-all active:scale-95 cursor-pointer ${
+                        selectedBettingId === bet.id
+                          ? 'border-emerald-600 bg-emerald-50/60 text-emerald-950 font-black shadow-sm'
+                          : 'border-slate-100 bg-slate-50 text-slate-500 hover:bg-slate-50'
+                      }`}
+                    >
+                      {bet.name}
+                      {selectedBettingId === bet.id && (
+                        <span className="absolute -top-1.5 -right-1.5 bg-emerald-600 border border-white text-white p-0.5 rounded-full">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Betting ID account verification */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display">
+                  Enter Player Account ID (User ID)
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-grow">
+                    <input
+                      id="betting-user-id-input"
+                      type="text"
+                      placeholder={BETTING_PROVIDERS.find(b => b.id === selectedBettingId)?.placeholder || 'Enter betting user id'}
+                      value={bettingUserId}
+                      onChange={(e) => {
+                        setBettingUserId(e.target.value.replace(/[^0-9]/g, ''));
+                        setValidatedBettingClass(null);
+                      }}
+                      className="w-full p-3.5 bg-slate-50 border border-slate-205 rounded-xl text-sm font-mono font-black tracking-widest pl-10 focus:bg-white focus:border-emerald-600 outline-none"
+                      required
+                    />
+                    <Trophy className="absolute left-3.5 top-4 w-4 h-4 text-slate-400" />
+                  </div>
+
+                  <button
+                    id="validate-betting-btn"
+                    type="button"
+                    onClick={handleValidateBetting}
+                    disabled={isValidatingBetting}
+                    className="px-4 bg-slate-900 text-white hover:bg-black rounded-xl text-xs font-bold font-display transition-colors active:scale-95 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    {isValidatingBetting ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <UserCheck className="w-3.5 h-3.5" />
+                    )}
+                    Verify Account
+                  </button>
+                </div>
+              </div>
+
+              {/* Verified user profiles render */}
+              {validatedBettingClass && validatedBettingClass.isValidated && (
+                <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl flex flex-col gap-1 text-xs shadow-inner animate-fade-in" id="betting-validation-box">
+                  <span className="text-[10px] font-black text-emerald-800 tracking-wider font-display uppercase block">
+                    Verified Sports Betting Registered Owner:
+                  </span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1.5 text-slate-700 font-medium">
+                    <div>
+                      <span className="text-slate-450 text-[10px] block font-display">PLAYER OWNER'S NAME:</span>
+                      <span className="text-emerald-950 font-bold font-display uppercase">{validatedBettingClass.customerName}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-450 text-[10px] block font-display">ACCOUNT STATUS / TYPE:</span>
+                      <span className="text-emerald-950 font-mono font-bold text-xs">{validatedBettingClass.status}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Betting Funding Amount */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display">
+                  Deposit Wallet Credit (₦)
+                </label>
+                <input
+                  id="betting-recharge-amount"
+                  type="number"
+                  placeholder="Min N100 - Max N100,000"
+                  min={100}
+                  max={100000}
+                  value={bettingAmount}
+                  onChange={(e) => setBettingAmount(e.target.value)}
+                  className="w-full p-3.5 bg-slate-50 border border-slate-205 rounded-xl font-display text-lg font-black tracking-tight outline-none focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition-all font-semibold"
+                  required
+                />
+                <span className="text-[10px] text-slate-400 font-medium font-sans">Provides instant gateway dispatch via your Monnify active balance link. Zero convenience fee matches.</span>
               </div>
             </div>
           )}

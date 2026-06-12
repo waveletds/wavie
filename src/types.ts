@@ -10,7 +10,8 @@ export type TransactionType =
   | 'withdrawal' 
   | 'referral_bonus' 
   | 'cashback'
-  | 'smm';
+  | 'smm'
+  | 'betting';
 
 export type TransactionStatus = 'success' | 'failed' | 'pending';
 
@@ -70,6 +71,10 @@ export interface UserState {
   strowalletAccountNumber?: string | null;
   strowalletBankName?: string | null;
   strowalletAccountName?: string | null;
+  monnifyAccountReference?: string | null;
+  monnifyBankName?: string | null;
+  monnifyAccountNumber?: string | null;
+  monnifyAccountName?: string | null;
 }
 
 export interface DataPlan {
