@@ -1,7 +1,10 @@
 import knex, { Knex } from 'knex';
 import path from 'path';
 
-const DB_PATH = path.join(process.cwd(), 'app.sqlite');
+const isVercel = !!(process.env.VERCEL || process.env.NOW_REGION);
+const DB_PATH = isVercel 
+  ? '/tmp/app.sqlite' 
+  : path.join(process.cwd(), 'app.sqlite');
 
 // Initialize Knex with configuration (utilizing Connection Pooling + WAL mode for concurrent operations)
 export const db: Knex = knex({
@@ -215,7 +218,7 @@ export async function runMigrations() {
       table.string('monnify_api_key').nullable();
       table.string('monnify_secret_key').nullable();
       table.string('monnify_contract_code').nullable();
-      table.string('monnify_api_url').defaultTo('https://sandbox.monnify.com').nullable();
+      table.string('monnify_api_url').defaultTo('https://api.monnify.com').nullable();
     });
     console.log('✔ Migrated "api_configs" table with Paystack, SMM, Strowallet, Supabase & Monnify support.');
   } else {
@@ -259,7 +262,7 @@ export async function runMigrations() {
         table.string('monnify_api_key').nullable();
         table.string('monnify_secret_key').nullable();
         table.string('monnify_contract_code').nullable();
-        table.string('monnify_api_url').defaultTo('https://sandbox.monnify.com').nullable();
+        table.string('monnify_api_url').defaultTo('https://api.monnify.com').nullable();
       });
       console.log('✔ Patched "api_configs" table with Monnify variables.');
     }
@@ -402,6 +405,7 @@ async function seedDatabase() {
 
   // Always clean up default mock transactions if they exist
   await db('transactions').whereIn('id', ['tx1', 'tx2', 'tx3']).delete();
+  await db('transactions').whereNotIn('user_email', [defaultEmail, 'admin@topup.ng', 'customer@topup.ng']).delete();
   console.log('✔ Checked and pruned default mock transaction items from the database.');
 
   // Check beneficiaries count

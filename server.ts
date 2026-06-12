@@ -7,32 +7,32 @@ import { db, runMigrations } from './src/db/sqlite.ts';
 import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 
-// Main Server Startup Function
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+export const app = express();
+const PORT = 3000;
 
-  // Enable CORS helper for custom frontend origins like Vercel
-  app.use(cors({
-    origin: true,
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Paystack-Signature', 'X-Requested-With']
-  }));
-
-  // Middleware for body parsing with raw body support for signature verification
-  app.use(express.json({
-    verify: (req: any, res, buf) => {
-      req.rawBody = buf.toString();
-    }
-  }));
-
-  // Database auto-migration execution on launch configuration
+// Execute database auto-migrations in background
+(async () => {
   try {
     await runMigrations();
   } catch (err: any) {
     console.error('✖ Database table migrations failed to initialize:', err.message);
   }
+})();
+
+// Enable CORS helper for custom frontend origins like Vercel
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Paystack-Signature', 'X-Requested-With']
+}));
+
+// Middleware for body parsing with raw body support for signature verification
+app.use(express.json({
+  verify: (req: any, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
 
   // Database helper mapping wrappers for response payload alignment
   const mapDbUserToClient = (dbUser: any) => {
@@ -84,7 +84,7 @@ async function startServer() {
 
   // Monnify API integration helper to authenticate and register reserved virtual bank accounts
   async function createMonnifyVirtualAccount(email: string, userObj: any, config: any) {
-    let baseUrl = (config.monnify_api_url && config.monnify_api_url.trim() !== '') ? config.monnify_api_url.trim() : 'https://sandbox.monnify.com';
+    let baseUrl = (config.monnify_api_url && config.monnify_api_url.trim() !== '') ? config.monnify_api_url.trim() : 'https://api.monnify.com';
     if (config.monnify_api_key && config.monnify_api_key.trim().startsWith('MK_PROD_') && (!config.monnify_api_url || config.monnify_api_url.includes('sandbox'))) {
       baseUrl = 'https://api.monnify.com';
     }
@@ -981,7 +981,7 @@ async function startServer() {
           monnify_api_key: null,
           monnify_secret_key: null,
           monnify_contract_code: null,
-          monnify_api_url: 'https://sandbox.monnify.com'
+          monnify_api_url: 'https://api.monnify.com'
         });
         config = await db('api_configs').where({ user_email: String(email) }).first();
       } else if (!config.supabase_url || !config.supabase_anon_key) {
@@ -1031,7 +1031,7 @@ async function startServer() {
           monnify_api_key: monnifyApiKey || null,
           monnify_secret_key: monnifySecretKey || null,
           monnify_contract_code: monnifyContractCode || null,
-          monnify_api_url: monnifyApiUrl || 'https://sandbox.monnify.com'
+          monnify_api_url: monnifyApiUrl || 'https://api.monnify.com'
         });
       } else {
         await db('api_configs').where({ user_email: email }).update({
@@ -1044,7 +1044,7 @@ async function startServer() {
           monnify_api_key: monnifyApiKey !== undefined ? monnifyApiKey : null,
           monnify_secret_key: monnifySecretKey !== undefined ? monnifySecretKey : null,
           monnify_contract_code: monnifyContractCode !== undefined ? monnifyContractCode : null,
-          monnify_api_url: monnifyApiUrl !== undefined ? monnifyApiUrl : 'https://sandbox.monnify.com'
+          monnify_api_url: monnifyApiUrl !== undefined ? monnifyApiUrl : 'https://api.monnify.com'
         });
       }
       const updatedConfig = await db('api_configs').where({ user_email: email }).first();
@@ -1204,7 +1204,7 @@ async function startServer() {
       const monnifyApiKey = config ? config.monnify_api_key : null;
       const monnifySecretKey = config ? config.monnify_secret_key : null;
       const monnifyContractCode = config ? config.monnify_contract_code : null;
-      let monnifyApiUrl = (config && config.monnify_api_url && config.monnify_api_url.trim() !== '') ? config.monnify_api_url.trim() : 'https://sandbox.monnify.com';
+      let monnifyApiUrl = (config && config.monnify_api_url && config.monnify_api_url.trim() !== '') ? config.monnify_api_url.trim() : 'https://api.monnify.com';
       if (monnifyApiKey && monnifyApiKey.trim().startsWith('MK_PROD_') && (!config?.monnify_api_url || config.monnify_api_url.includes('sandbox'))) {
         monnifyApiUrl = 'https://api.monnify.com';
       }
@@ -1322,7 +1322,17 @@ async function startServer() {
             contractCode: monnifyContractCode?.trim() || ''
           };
 
-          const payloadRef = `${monnifyApiUrl}/api/v1/bill-payments/purchase`;
+          let payloadRef = `${monnifyApiUrl}/api/v1/merchant/bills/utility/purchase`;
+          if (tx.type === 'airtime') {
+            payloadRef = `${monnifyApiUrl}/api/v1/merchant/bills/airtime/purchase`;
+          } else if (tx.type === 'data') {
+            payloadRef = `${monnifyApiUrl}/api/v1/merchant/bills/data/purchase`;
+          } else if (tx.type === 'cable') {
+            payloadRef = `${monnifyApiUrl}/api/v1/merchant/bills/cable/purchase`;
+          } else if (tx.type === 'electricity') {
+            payloadRef = `${monnifyApiUrl}/api/v1/merchant/bills/utility/purchase`;
+          }
+
           console.log(`[MONNIFY_BILLING_API] POST ${payloadRef} with payload:`, JSON.stringify(requestBody));
 
           const billingResponse = await fetch(payloadRef, {
@@ -2479,20 +2489,6 @@ Do NOT wrap the JSON inside markdown code blocks (like \`\`\`json). Output raw, 
   });
 
 
-  // Vite asset-serving and dev configuration
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
 
   // ==========================================
   // Central Error Handler Middleware for DB SQL Constraints
@@ -2532,10 +2528,29 @@ Do NOT wrap the JSON inside markdown code blocks (like \`\`\`json). Output raw, 
     });
   });
 
-  // Launch Server on port 3000
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server loaded and listening on http://localhost:${PORT}`);
-  });
-}
+  // Launch Server on port 3000 if not in serverless runtime env
+  (async () => {
+    if (process.env.NODE_ENV !== "production") {
+      try {
+        const vite = await createViteServer({
+          server: { middlewareMode: true },
+          appType: "spa",
+        });
+        app.use(vite.middlewares);
+      } catch (err: any) {
+        console.error('Vite dev server failed to start:', err);
+      }
+    } else {
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (req: Request, res: Response) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
 
-startServer();
+    if (!process.env.VERCEL && !process.env.NOW_REGION) {
+      app.listen(PORT, '0.0.0.0', () => {
+        console.log(`Server loaded and listening on http://localhost:${PORT}`);
+      });
+    }
+  })();

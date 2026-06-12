@@ -638,48 +638,6 @@ export const WalletAndBankPanel: React.FC<WalletAndBankPanelProps> = ({
                     <span>These are individual automated accounts powered by Monnify Gateway. Send transfers of any amount and your wallet will credit instantly.</span>
                   </div>
                 </div>
-
-                {/* Simulation controls */}
-                <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl flex flex-col gap-4 mt-2">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-extrabold font-display text-slate-800 uppercase tracking-wider">Simulate Webhook Transfer</span>
-                    <span className="text-[10px] text-slate-500 font-medium">Test instant automated webhook execution right in this preview environment.</span>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount to Simulate (₦)</label>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">₦</span>
-                      <input
-                        type="number"
-                        value={fundingAmount}
-                        onChange={(e) => setFundingAmount(e.target.value)}
-                        placeholder="5,000"
-                        min={100}
-                        className="w-full p-2.5 pl-7 border border-slate-200 bg-white rounded-xl text-sm font-bold outline-none font-display text-slate-900 focus:border-slate-850"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleTriggerMockTransfer}
-                    disabled={isSimulatingTransfer}
-                    className="w-full py-3 bg-slate-900 border border-slate-950 text-white hover:bg-black font-display font-bold text-xs uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {isSimulatingTransfer ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Routing clearance...
-                      </>
-                    ) : (
-                      <>
-                        <ArrowDownLeft className="w-4 h-4 text-emerald-400" />
-                        Debit Simulator Balance (Monnify Webhook Test)
-                      </>
-                    )}
-                  </button>
-                </div>
               </div>
             ) : (
               /* original card flow */
