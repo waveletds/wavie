@@ -154,7 +154,14 @@ async function startServer() {
         }, { onConflict: 'email' });
         
         if (userError) {
-          console.warn('[SUPABASE_SYNC_WARN] Users table upsert error:', userError.message);
+          if (userError.message.includes('row-level security') || userError.message.includes('policy')) {
+            console.log('[SUPABASE_SYNC_NOTICE] Users table row-level security policy detected. User should run RLS command if they want to sync.');
+            return {
+              success: false,
+              error: `Supabase Row-Level Security (RLS) Error on 'users' table: "${userError.message}". To fix this, please run: "alter table users disable row level security;" in your Supabase SQL Editor.`
+            };
+          }
+          console.log('[SUPABASE_SYNC_INFO] Users table upsert message:', userError.message);
         }
       }
 
@@ -182,13 +189,20 @@ async function startServer() {
 
         const { error: txError } = await client.from('transactions').upsert(syncPayload, { onConflict: 'reference' });
         if (txError) {
-          console.warn('[SUPABASE_SYNC_WARN] Transactions table upsert error:', txError.message);
+          if (txError.message.includes('row-level security') || txError.message.includes('policy')) {
+            console.log('[SUPABASE_SYNC_NOTICE] Transactions table row-level security policy detected. User should run RLS command if they want to sync.');
+            return {
+              success: false,
+              error: `Supabase Row-Level Security (RLS) Error on 'transactions' table: "${txError.message}". To fix this, please run: "alter table transactions disable row level security;" in your Supabase SQL Editor.`
+            };
+          }
+          console.log('[SUPABASE_SYNC_INFO] Transactions table upsert message:', txError.message);
         }
       }
 
       return { success: true };
     } catch (err: any) {
-      console.warn('[SUPABASE_SYNC_EXCEPTION] Sync failed:', err.message);
+      console.log('[SUPABASE_SYNC_INFO] Sync bypassed or delayed:', err.message);
       return { success: false, error: err.message };
     }
   };
@@ -227,9 +241,12 @@ async function startServer() {
       }
 
       if (user) {
-        user = await ensureVirtualAccount(user.email);
+        const virtualUser = await ensureVirtualAccount(user.email);
+        if (virtualUser) {
+          user = virtualUser;
+        }
         syncLatestData(user.email).catch(err => {
-          console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+          console.log('[SUPABASE_BACKGROUND_SYNC_INFO]', err.message);
         });
       }
 
@@ -314,9 +331,12 @@ async function startServer() {
       }
 
       if (user) {
-        user = await ensureVirtualAccount(user.email);
+        const virtualUser = await ensureVirtualAccount(user.email);
+        if (virtualUser) {
+          user = virtualUser;
+        }
         syncLatestData(user.email).catch(err => {
-          console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+          console.log('[SUPABASE_BACKGROUND_SYNC_INFO]', err.message);
         });
       }
 
@@ -453,7 +473,7 @@ async function startServer() {
       const updatedUser = await db('users').where({ email }).first();
       if (updatedUser) {
         syncLatestData(email).catch(err => {
-          console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+          console.log('[SUPABASE_BACKGROUND_SYNC_INFO]', err.message);
         });
       }
       res.json({ success: true, user: mapDbUserToClient(updatedUser) });
@@ -556,7 +576,7 @@ async function startServer() {
 
       const updatedUser = await db('users').where({ email: userEmail }).first();
       syncLatestData(userEmail).catch(err => {
-        console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+        console.log('[SUPABASE_BACKGROUND_SYNC_INFO]', err.message);
       });
       res.json({ success: true, message: `Wallet balance adjusted to ₦${newBalance.toLocaleString()}!`, user: mapDbUserToClient(updatedUser) });
     } catch (err) {
@@ -649,7 +669,7 @@ async function startServer() {
       await db('transactions').where({ id: transactionId }).update({ status: status });
       if (tx.user_email) {
         syncLatestData(tx.user_email).catch(err => {
-          console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+          console.log('[SUPABASE_BACKGROUND_SYNC_INFO]', err.message);
         });
       }
       res.json({ success: true, message: `Transaction status adjusted to ${status} successfully.` });
@@ -675,7 +695,7 @@ async function startServer() {
 
       // Non-blocking asynchronous sync to Supabase in background if credentials exist
       syncLatestData(String(email)).catch(err => {
-        console.warn('[SUPABASE_AUTO_SYNC_BACKGROUND_ERR]', err.message);
+        console.log('[SUPABASE_AUTO_SYNC_BACKGROUND_INFO]', err.message);
       });
     } catch (err) {
       next(err);
@@ -743,7 +763,7 @@ async function startServer() {
       const dbTx = await db('transactions').where({ id: tx.id }).first();
 
       syncLatestData(email).catch(err => {
-        console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+        console.log('[SUPABASE_BACKGROUND_SYNC_INFO]', err.message);
       });
 
       res.json({ 
@@ -795,14 +815,25 @@ async function startServer() {
     }
 
     try {
-      await db('beneficiaries').insert({
-        id: beneficiary.id,
-        user_email: email,
-        type: beneficiary.type,
-        name: beneficiary.name,
-        value: beneficiary.value,
-        provider: beneficiary.provider || ''
-      });
+      const existing = await db('beneficiaries').where({ id: beneficiary.id }).first();
+      if (existing) {
+        await db('beneficiaries').where({ id: beneficiary.id }).update({
+          user_email: email,
+          type: beneficiary.type,
+          name: beneficiary.name,
+          value: beneficiary.value,
+          provider: beneficiary.provider || ''
+        });
+      } else {
+        await db('beneficiaries').insert({
+          id: beneficiary.id,
+          user_email: email,
+          type: beneficiary.type,
+          name: beneficiary.name,
+          value: beneficiary.value,
+          provider: beneficiary.provider || ''
+        });
+      }
       res.json({ success: true, beneficiary });
     } catch (err) {
       next(err);
@@ -1205,7 +1236,7 @@ async function startServer() {
         .limit(2);
 
       syncLatestData(email).catch(err => {
-        console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+        console.log('[SUPABASE_BACKGROUND_SYNC_INFO]', err.message);
       });
 
       res.json({
@@ -1350,7 +1381,7 @@ async function startServer() {
         .limit(2);
 
       syncLatestData(email).catch(err => {
-        console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+        console.log('[SUPABASE_BACKGROUND_SYNC_INFO]', err.message);
       });
 
       res.json({
@@ -1473,7 +1504,7 @@ async function startServer() {
             .limit(2);
 
           syncLatestData(customerEmail).catch(err => {
-            console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+            console.log('[SUPABASE_BACKGROUND_SYNC_INFO]', err.message);
           });
 
           return res.json({
@@ -1545,7 +1576,7 @@ async function startServer() {
           .limit(2);
 
         syncLatestData(email).catch(err => {
-          console.warn('[SUPABASE_BACKGROUND_SYNC_ERR]', err.message);
+          console.log('[SUPABASE_BACKGROUND_SYNC_INFO]', err.message);
         });
 
         return res.json({

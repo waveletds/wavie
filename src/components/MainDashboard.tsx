@@ -76,7 +76,6 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
     electricity: { icon: <Lightbulb className="w-4.5 h-4.5" />, label: dict.electricity, tab: 'electricity', desc: lang === 'pidgin' ? 'Nepa electricity' : 'Prepaid billing' },
     cable: { icon: <Tv className="w-4.5 h-4.5" />, label: dict.cable, tab: 'cable', desc: lang === 'pidgin' ? 'Decoder subscription' : 'DStv & GOtv' },
     education: { icon: <GraduationCap className="w-4.5 h-4.5" />, label: dict.education, tab: 'education', desc: lang === 'pidgin' ? 'WAEC, NECO pins' : 'Result ePIN check' },
-    smm: { icon: <Share2 className="w-4.5 h-4.5" />, label: 'SMM Booster', tab: 'smm', desc: lang === 'pidgin' ? 'Follo & view booster' : 'Social boost views' },
   };
 
   const getTxTypeStyles = (type: string) => {
@@ -185,7 +184,7 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
           {dict.quick_actions_header}
         </h2>
         
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-3">
           {Object.entries(serviceIcons).map(([key, item]) => {
             const serviceColors: Record<string, { bg: string, text: string, hoverBg: string }> = {
               airtime: { bg: 'bg-indigo-50 border border-indigo-100/50', text: 'text-indigo-600', hoverBg: 'group-hover:bg-indigo-650 group-hover:text-white' },
@@ -193,7 +192,6 @@ export const MainDashboard: React.FC<MainDashboardProps> = ({
               electricity: { bg: 'bg-amber-50 border border-amber-100/50', text: 'text-amber-600', hoverBg: 'group-hover:bg-amber-500 group-hover:text-white' },
               cable: { bg: 'bg-rose-50 border border-rose-100/50', text: 'text-rose-600', hoverBg: 'group-hover:bg-rose-500 group-hover:text-white' },
               education: { bg: 'bg-sky-50 border border-sky-100/50', text: 'text-sky-600', hoverBg: 'group-hover:bg-sky-650 group-hover:text-white' },
-              smm: { bg: 'bg-purple-50 border border-purple-100/50', text: 'text-purple-600', hoverBg: 'group-hover:bg-purple-650 group-hover:text-white' },
             };
             const colors = serviceColors[key] || { bg: 'bg-emerald-50', text: 'text-emerald-600', hoverBg: 'group-hover:bg-emerald-650 group-hover:text-white' };
 

@@ -51,8 +51,12 @@ export async function runMigrations() {
       table.integer('is_webauthn_enabled').defaultTo(0).notNullable();
       table.text('webauthn_credential_id').nullable();
       table.string('role').defaultTo('user').notNullable(); // 'user', 'admin', 'super_admin'
+      table.string('strowallet_customer_id').nullable();
+      table.string('strowallet_account_number').nullable();
+      table.string('strowallet_bank_name').nullable();
+      table.string('strowallet_account_name').nullable();
     });
-    console.log('✔ Migrated "users" table.');
+    console.log('✔ Migrated "users" table with all columns.');
   } else {
     const hasRole = await db.schema.hasColumn('users', 'role');
     if (!hasRole) {
@@ -65,9 +69,15 @@ export async function runMigrations() {
     if (!hasWebauthnEnabled) {
       await db.schema.alterTable('users', (table) => {
         table.integer('is_webauthn_enabled').defaultTo(0).notNullable();
+      });
+      console.log('✔ Added is_webauthn_enabled column to existing "users" table.');
+    }
+    const hasWebauthnCredential = await db.schema.hasColumn('users', 'webauthn_credential_id');
+    if (!hasWebauthnCredential) {
+      await db.schema.alterTable('users', (table) => {
         table.text('webauthn_credential_id').nullable();
       });
-      console.log('✔ Added WebAuthn columns to existing "users" table.');
+      console.log('✔ Added webauthn_credential_id column to existing "users" table.');
     }
     const hasPassword = await db.schema.hasColumn('users', 'password');
     if (!hasPassword) {
@@ -76,15 +86,35 @@ export async function runMigrations() {
       });
       console.log('✔ Added password column to existing "users" table.');
     }
+    
+    // Individually and robustly add each Strowallet column if missing
     const hasStrowalletCustomerId = await db.schema.hasColumn('users', 'strowallet_customer_id');
     if (!hasStrowalletCustomerId) {
       await db.schema.alterTable('users', (table) => {
         table.string('strowallet_customer_id').nullable();
+      });
+      console.log('✔ Patched strowallet_customer_id column.');
+    }
+    const hasStrowalletAccountNumber = await db.schema.hasColumn('users', 'strowallet_account_number');
+    if (!hasStrowalletAccountNumber) {
+      await db.schema.alterTable('users', (table) => {
         table.string('strowallet_account_number').nullable();
+      });
+      console.log('✔ Patched strowallet_account_number column.');
+    }
+    const hasStrowalletBankName = await db.schema.hasColumn('users', 'strowallet_bank_name');
+    if (!hasStrowalletBankName) {
+      await db.schema.alterTable('users', (table) => {
         table.string('strowallet_bank_name').nullable();
+      });
+      console.log('✔ Patched strowallet_bank_name column.');
+    }
+    const hasStrowalletAccountName = await db.schema.hasColumn('users', 'strowallet_account_name');
+    if (!hasStrowalletAccountName) {
+      await db.schema.alterTable('users', (table) => {
         table.string('strowallet_account_name').nullable();
       });
-      console.log('✔ Added Strowallet columns to existing "users" table.');
+      console.log('✔ Patched strowallet_account_name column.');
     }
   }
 

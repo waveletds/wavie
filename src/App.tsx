@@ -18,7 +18,6 @@ import { AirtimeAndDataPanel } from './components/AirtimeAndDataPanel';
 import { BillsRechargePanel } from './components/BillsRechargePanel';
 import { EducationPinsPanel } from './components/EducationPinsPanel';
 import { WalletAndBankPanel } from './components/WalletAndBankPanel';
-import { SmmBoosterPanel } from './components/SmmBoosterPanel';
 import { TransactionsList } from './components/TransactionsList';
 import { SettingsConfig } from './components/SettingsConfig';
 import { AdminTerminal } from './components/AdminTerminal';
@@ -982,7 +981,6 @@ export default function App() {
     { id: 'electricity', label: dict.electricity, icon: <Lightbulb className="w-4 h-4" /> },
     { id: 'cable', label: dict.cable, icon: <Tv className="w-4 h-4" /> },
     { id: 'education', label: dict.education, icon: <GraduationCap className="w-4 h-4" /> },
-    { id: 'smm', label: 'SMM Booster', icon: <Share2 className="w-4 h-4" /> },
     { id: 'wallet', label: dict.wallet, icon: <Wallet className="w-4 h-4" /> },
     { id: 'transactions', label: dict.transactions, icon: <History className="w-4 h-4" /> },
     { id: 'settings', label: dict.settings, icon: <Settings className="w-4 h-4" /> },
@@ -1835,14 +1833,6 @@ export default function App() {
 
                   {activeTab === 'education' && (
                     <EducationPinsPanel
-                      user={user}
-                      onTriggerPurchase={handleInterceptPurchase}
-                      addToast={addToast}
-                    />
-                  )}
-
-                  {activeTab === 'smm' && (
-                    <SmmBoosterPanel
                       user={user}
                       onTriggerPurchase={handleInterceptPurchase}
                       addToast={addToast}
