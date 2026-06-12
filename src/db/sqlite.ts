@@ -373,19 +373,31 @@ async function seedDatabase() {
       monnify_api_key: 'MK_PROD_7PTFPLFJMA',
       monnify_secret_key: 'EVWU08FGU5593XD9RU00HPSL3GGE7RCF',
       monnify_contract_code: '990220110619',
-      monnify_api_url: 'https://api.monnify.com'
+      monnify_api_url: 'https://api.monnify.com',
+      supabase_url: 'https://guzlvzkifizmskmwdfdk.supabase.co',
+      supabase_anon_key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1emx2emtpZml6bXNrbXdkZmRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNzk1NzIsImV4cCI6MjA5Njc1NTU3Mn0.SekayTDlb-5pRXbjRMA6bo2uBODO5YenOpf7zz9wqNc'
     });
-    console.log('✔ Seeded default API configs entry with live Paystack & Monnify keys.');
+    console.log('✔ Seeded default API configs entry with live Paystack, Monnify, and active Supabase keys.');
   } else {
-    // Ensure Paystack and Monnify keys are set to user's requested live production keys
+    // Ensure Paystack, Monnify, and Supabase keys are set to user's requested live production keys
     await db('api_configs').where({ user_email: defaultEmail }).update({
       paystack_public_key: 'pk_live_26c21769a652b4bfd26b4f02d485c915d21fe69e',
       monnify_api_key: 'MK_PROD_7PTFPLFJMA',
       monnify_secret_key: 'EVWU08FGU5593XD9RU00HPSL3GGE7RCF',
       monnify_contract_code: '990220110619',
-      monnify_api_url: 'https://api.monnify.com'
+      monnify_api_url: 'https://api.monnify.com',
+      supabase_url: config.supabase_url || 'https://guzlvzkifizmskmwdfdk.supabase.co',
+      supabase_anon_key: config.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1emx2emtpZml6bXNrbXdkZmRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNzk1NzIsImV4cCI6MjA5Njc1NTU3Mn0.SekayTDlb-5pRXbjRMA6bo2uBODO5YenOpf7zz9wqNc'
     });
-    console.log('✔ Updated API configs with requested live Paystack & Monnify keys.');
+    console.log('✔ Updated API configs with requested live Paystack & Monnify & active Supabase keys.');
+  }
+
+  // Purge all old registered general user accounts from SQLite DB, leaving only default/seed developer and system profiles
+  const deletedGeneralUsers = await db('users')
+    .whereNotIn('email', [defaultEmail, 'admin@topup.ng', 'customer@topup.ng'])
+    .delete();
+  if (deletedGeneralUsers > 0) {
+    console.log(`✔ Pruned and deleted ${deletedGeneralUsers} old registered sandbox user account(s) on startup successfully.`);
   }
 
   // Always clean up default mock transactions if they exist

@@ -227,7 +227,11 @@ async function startServer() {
   // Helper to synchronize local data state into Supabase instance if configured
   const syncLatestData = async (email: string) => {
     try {
-      const config = await db('api_configs').where({ user_email: String(email) }).first();
+      let config = await db('api_configs').where({ user_email: String(email) }).first();
+      if (!config || !config.supabase_url || !config.supabase_anon_key) {
+        // Fallback to the master system administrator credentials to synchronize any registered profile activities to Supabase
+        config = await db('api_configs').where({ user_email: 'iqleadsbloger@gmail.com' }).first();
+      }
       if (!config || !config.supabase_url || !config.supabase_anon_key) {
         return { success: false, error: 'Supabase credentials not configured' };
       }

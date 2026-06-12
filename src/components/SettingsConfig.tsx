@@ -820,6 +820,192 @@ export const SettingsConfig: React.FC<SettingsConfigProps> = ({
           </span>
         </div>
       </div>
+
+      {/* Supabase Core Real-Time Database Gateway panel */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col gap-5 lg:col-span-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1 px-2.5 rounded-full text-[9px] font-black tracking-widest bg-emerald-100 text-emerald-800 animate-pulse uppercase">
+                Active System Sync
+              </span>
+              <h3 className="font-display font-black text-slate-800 text-sm flex items-center gap-1.5">
+                <Database className="w-4 h-4 text-emerald-600" />
+                Supabase PostgreSQL Database Cloud
+              </h3>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1 font-medium font-sans">
+              All register details and subsequent user transactions are mirrored directly to your active Supabase instance.
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-emerald-800 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl font-bold font-display cursor-default shadow-sm select-none self-start md:self-auto">
+            <CheckCircle className="w-4 h-4 text-emerald-600" />
+            Active Real-time Listening
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveApiConfig} className="flex flex-col gap-4 border-t border-slate-105 pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display font-black">Supabase Endpoint URL</span>
+              <div className="relative">
+                <input
+                  id="supabase-url-input"
+                  type="text"
+                  placeholder="https://your-project.supabase.co"
+                  value={supabaseUrl}
+                  onChange={(e) => setSupabaseUrl(e.target.value.trim())}
+                  className="w-full p-2.5 pl-9 border border-slate-205 bg-slate-50 focus:bg-white rounded-xl text-xs font-semibold outline-none"
+                  required
+                />
+                <Cpu className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-display font-black">Secret API Anon Key & Token</span>
+              <div className="relative">
+                <input
+                  id="supabase-anon-key-input"
+                  type={showSupabaseKey ? "text" : "password"}
+                  placeholder="eyJhbGciOiJIUzI1Ni..."
+                  value={supabaseAnonKey}
+                  onChange={(e) => setSupabaseAnonKey(e.target.value.trim())}
+                  className="w-full p-2.5 pl-9 pr-10 border border-slate-205 bg-slate-50 focus:bg-white rounded-xl text-xs font-mono font-bold tracking-wider outline-none"
+                  required
+                />
+                <Database className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                <button
+                  type="button"
+                  onClick={() => setShowSupabaseKey(!showSupabaseKey)}
+                  className="absolute right-3 top-3 text-slate-400 hover:text-slate-650 focus:outline-none cursor-pointer"
+                >
+                  {showSupabaseKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 mt-2">
+            <button
+              id="supabase-save-config-btn"
+              type="submit"
+              disabled={isSavingApi}
+              className="py-2.5 bg-slate-900 border border-slate-950 hover:bg-black text-white text-xs font-bold font-display rounded-xl flex items-center justify-center gap-1.5 shadow active:scale-95 disabled:bg-slate-300 pointer-events-auto cursor-pointer"
+            >
+              {isSavingApi ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Saving gateway details...
+                </>
+              ) : (
+                'Save Connection Settings'
+              )}
+            </button>
+
+            <button
+              id="supabase-test-connection-btn"
+              type="button"
+              onClick={handleTestSupabaseConnection}
+              disabled={isTestingSupabase}
+              className="py-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 text-indigo-700 text-xs font-bold font-display rounded-xl flex items-center justify-center gap-1.5 active:scale-95 disabled:bg-slate-100 pointer-events-auto cursor-pointer"
+            >
+              {isTestingSupabase ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-650" />
+                  Testing cluster link...
+                </>
+              ) : (
+                <>
+                  <Activity className="w-3.5 h-3.5 text-indigo-600" />
+                  Test Database Link
+                </>
+              )}
+            </button>
+
+            <button
+              id="supabase-force-sync-btn"
+              type="button"
+              onClick={handleSyncSupabaseHistory}
+              disabled={isSyncingSupabase}
+              className="py-2.5 bg-slate-55 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold font-display rounded-xl flex items-center justify-center gap-1.5 active:scale-95 disabled:bg-slate-100 pointer-events-auto cursor-pointer"
+            >
+              {isSyncingSupabase ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Mirroring records...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+                  Mirror Full History Backups
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+
+        {supabaseTestResult && (
+          <div className="p-4 border border-indigo-100 bg-indigo-50/30 rounded-2xl flex items-start gap-3 mt-1 text-xs animate-[fadeIn_0.2s_ease-out]">
+            {supabaseTestResult.success ? (
+              <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 text-red-650 mt-0.5 flex-shrink-0" />
+            )}
+            <div className="flex flex-col gap-0.5 text-left">
+              <span className={`font-bold font-display ${supabaseTestResult.success ? 'text-emerald-900' : 'text-red-900'}`}>
+                {supabaseTestResult.success ? 'Diagnostics established Successfully' : 'Diagnostic Check Failed'}
+              </span>
+              <p className={`font-semibold leading-normal ${supabaseTestResult.success ? 'text-emerald-700' : 'text-red-750'}`}>
+                {supabaseTestResult.message}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-slate-50 border border-slate-150 p-4 rounded-xl flex flex-col gap-2 text-left">
+          <span className="text-[10px] uppercase font-black tracking-widest text-slate-400 font-display">Supabase Schema Diagnostics Checklists</span>
+          <p className="text-[10.5px] text-slate-500 font-semibold leading-normal">
+            For real-time mirroring write backups to operate correctly, please make sure you have the following tables initialized inside your active Supabase SQL Database panel:
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1.5">
+            <div className="p-3 bg-white border border-slate-100 rounded-xl font-mono text-[9.5px]">
+              <span className="font-bold text-slate-800 block mb-1">1. Users Schema Table:</span>
+              <code className="text-indigo-600 block max-h-[85px] overflow-y-auto whitespace-pre">
+{`create table users (
+  id integer primary key,
+  email text unique not null,
+  name text not null,
+  phone text not null,
+  wallet_balance double precision default 0.0,
+  kyc_level text default 'Tier 1',
+  role text default 'user',
+  is_pin_set integer default 1
+);`}
+              </code>
+            </div>
+
+            <div className="p-3 bg-white border border-slate-100 rounded-xl font-mono text-[9.5px]">
+              <span className="font-bold text-slate-800 block mb-1">2. Transactions Schema Table:</span>
+              <code className="text-indigo-600 block max-h-[85px] overflow-y-auto whitespace-pre">
+{`create table transactions (
+  id text primary key,
+  user_email text not null,
+  type text not null,
+  amount double precision not null,
+  fee double precision default 0.0,
+  status text not null,
+  timestamp text not null,
+  description text not null,
+  recipient text not null,
+  reference text unique not null,
+  details text
+);`}
+              </code>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     {/* Holographic Biometric Enrollment Overlay Overlay */}
